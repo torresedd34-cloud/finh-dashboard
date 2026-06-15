@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Revisión de Contenido — Finh</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;background:#f8fafc;color:#111827;min-height:100vh}
+    a{color:inherit;text-decoration:none}
+
+    /* Header */
+    .header{background:#1e2235;padding:16px 32px;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:100;box-shadow:0 2px 12px rgba(0,0,0,.3)}
+    .header-brand{display:flex;align-items:center;gap:14px}
+    .header-brand img{height:36px}
+    .header-title{color:#fff;font-size:15px;font-weight:700}
+    .header-sub{color:rgba(255,255,255,.5);font-size:12px;margin-top:1px}
+    .progress-pill{background:rgba(255,255,255,.12);color:#fff;border-radius:20px;padding:6px 14px;font-size:12px;font-weight:700;white-space:nowrap}
+
+    /* Reviewer input */
+    .reviewer-bar{background:#fff;border-bottom:1px solid #e5e7eb;padding:14px 32px;display:flex;align-items:center;gap:12px}
+    .reviewer-bar label{font-size:13px;font-weight:600;color:#374151;white-space:nowrap}
+    .reviewer-bar input{border:1.5px solid #d1d5db;border-radius:8px;padding:8px 12px;font-size:13px;width:260px;outline:none;transition:border .15s}
+    .reviewer-bar input:focus{border-color:#1d4ed8}
+    .reviewer-bar .hint{font-size:12px;color:#9ca3af}
+
+    /* Page layout */
+    .page{max-width:820px;margin:0 auto;padding:28px 20px 80px}
+
+    /* Cards */
+    .card{background:#fff;border-radius:14px;border:1px solid #e5e7eb;margin-bottom:20px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.05);transition:box-shadow .2s}
+    .card.reviewed{border-color:#86efac}
+    .card.reviewed-rechazo{border-color:#fca5a5}
+    .card.reviewed-cambios{border-color:#fde68a}
+
+    .card-header{padding:14px 18px 10px;display:flex;justify-content:space-between;align-items:flex-start;border-bottom:1px solid #f3f4f6}
+    .plat-badge{font-size:12px;font-weight:800;padding:3px 10px;border-radius:6px;text-transform:uppercase;letter-spacing:.04em}
+    .plat-badge.linkedin{background:#dbeafe;color:#1d4ed8}
+    .plat-badge.twitter{background:#e0f2fe;color:#0284c7}
+    .plat-badge.facebook{background:#ede9fe;color:#6d28d9}
+    .plat-badge.email{background:#ccfbf1;color:#0f766e}
+    .card-meta{font-size:11px;color:#6b7280;margin-top:3px}
+    .review-badge{font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px}
+    .review-badge.aprobado{background:#dcfce7;color:#16a34a}
+    .review-badge.rechazado{background:#fee2e2;color:#dc2626}
+    .review-badge.cambios{background:#fef3c7;color:#d97706}
+    .review-badge.pendiente{background:#f3f4f6;color:#9ca3af}
+
+    .card-body{padding:14px 18px}
+    .card-title{font-size:15px;font-weight:700;color:#111827;margin-bottom:6px}
+    .card-text{font-size:13px;line-height:1.7;color:#374151;white-space:pre-wrap;word-break:break-word;background:#f9fafb;border-radius:8px;padding:10px 12px;margin-bottom:10px;max-height:160px;overflow-y:auto}
+    .card-hashes{font-size:13px;color:#0891b2;margin-bottom:6px;word-break:break-word}
+    .card-cta{font-size:13px;font-weight:700;color:#111827;margin-bottom:8px}
+    .card-img{max-height:140px;border-radius:8px;margin-top:6px;margin-bottom:4px}
+
+    /* Review form */
+    .review-form{border-top:1px solid #f3f4f6;padding:14px 18px;background:#fafafa}
+    .review-form-label{font-size:11px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px}
+    .btn-group{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+    .rev-btn{padding:8px 16px;border-radius:8px;border:1.5px solid #d1d5db;background:#fff;font-size:13px;font-weight:600;cursor:pointer;transition:all .15s;display:flex;align-items:center;gap:5px}
+    .rev-btn:hover{border-color:#6b7280}
+    .rev-btn.active-aprobado{background:#dcfce7;border-color:#16a34a;color:#15803d}
+    .rev-btn.active-rechazado{background:#fee2e2;border-color:#dc2626;color:#dc2626}
+    .rev-btn.active-cambios{background:#fef3c7;border-color:#d97706;color:#d97706}
+
+    .extra-fields{display:none;flex-direction:column;gap:10px}
+    .extra-fields.visible{display:flex}
+    .extra-fields textarea{border:1.5px solid #d1d5db;border-radius:8px;padding:10px 12px;font-size:13px;font-family:inherit;resize:vertical;min-height:80px;outline:none;transition:border .15s}
+    .extra-fields textarea:focus{border-color:#1d4ed8}
+    .extra-fields select{border:1.5px solid #d1d5db;border-radius:8px;padding:8px 12px;font-size:13px;outline:none;transition:border .15s;background:#fff}
+    .extra-fields select:focus{border-color:#1d4ed8}
+    .field-label{font-size:11px;font-weight:700;color:#6b7280;margin-bottom:4px;text-transform:uppercase;letter-spacing:.03em}
+
+    /* Submit */
+    .submit-bar{position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid #e5e7eb;padding:14px 32px;display:flex;justify-content:space-between;align-items:center;box-shadow:0 -4px 20px rgba(0,0,0,.08)}
+    .submit-info{font-size:13px;color:#6b7280}
+    .submit-info strong{color:#111827}
+    .submit-btn{padding:11px 32px;background:#1d4ed8;color:#fff;border:none;border-radius:9px;font-size:14px;font-weight:700;cursor:pointer;transition:background .15s;display:flex;align-items:center;gap:8px}
+    .submit-btn:hover{background:#1e40af}
+    .submit-btn:disabled{background:#93c5fd;cursor:not-allowed}
+
+    /* States */
+    #loading{text-align:center;padding:80px 20px;color:#6b7280;font-size:15px}
+    #success{display:none;text-align:center;padding:80px 20px}
+    #success h2{font-size:24px;font-weight:800;color:#15803d;margin-bottom:12px}
+    #success p{font-size:15px;color:#374151}
+    .empty{text-align:center;padding:60px 20px;color:#9ca3af;font-size:14px}
+
+    @media(max-width:600px){
+      .header{padding:12px 16px}
+      .reviewer-bar{padding:12px 16px;flex-wrap:wrap}
+      .page{padding:16px 12px 80px}
+      .submit-bar{padding:12px 16px}
+    }
+  </style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-brand">
+    <img src="https://finh.mx/wp-content/uploads/2024/01/logo-finh.png" onerror="this.style.display='none'" alt="Finh">
+    <div>
+      <div class="header-title">Revisión de Contenido</div>
+      <div class="header-sub" id="header-semana">Cargando...</div>
+    </div>
+  </div>
+  <div class="progress-pill" id="progress-pill">0 / 0 revisados</div>
+</div>
+
+<div class="reviewer-bar">
+  <label for="reviewer-name">Tu nombre:</label>
+  <input type="text" id="reviewer-name" placeholder="Ej. Ana García" autocomplete="name">
+  <span class="hint">Se incluirá en los comentarios enviados a Eduardo</span>
+</div>
+
+<div class="page">
+  <div id="loading">⏳ Cargando publicaciones...</div>
+  <div id="cards-container"></div>
+  <div id="success">
+    <div style="font-size:48px;margin-bottom:16px">✅</div>
+    <h2>¡Revisión enviada!</h2>
+    <p>Los comentarios llegaron al dashboard de Eduardo.<br>Puedes cerrar esta página.</p>
+  </div>
+</div>
+
+<div class="submit-bar" id="submit-bar" style="display:none">
+  <div class="submit-info">
+    <strong id="reviewed-count">0</strong> de <strong id="total-count">0</strong> revisados
+    <span id="pending-warn" style="color:#d97706;margin-left:8px;display:none">— hay elementos sin revisar</span>
+  </div>
+  <button class="submit-btn" id="submit-btn" onclick="submitReviews()">
+    <span>📤</span> Enviar revisión
+  </button>
+</div>
+
+<script>
+  const SB_URL = 'https://vpquftoxoygrckjxmoip.supabase.co';
+  const SB_KEY = 'sb_publishable_oQaR6x59mAL56QAPK8exug_1EwUPPFG';
+
+  const params = new URLSearchParams(location.search);
+  const postIds  = (params.get('ids')   || '').split(',').filter(Boolean);
+  const emailIds = (params.get('eids')  || '').split(',').filter(Boolean);
+  const semana   = params.get('semana') || '';
+
+  // reviewData[id] = { estado:'aprobado'|'rechazado'|'cambios_solicitados', nota:'', campo:'' }
+  const reviewData = {};
+
+  function sbFetch(table, filter) {
+    return fetch(SB_URL + '/rest/v1/' + table + '?' + filter, {
+      headers: { apikey: SB_KEY, Authorization: 'Bearer ' + SB_KEY }
+    }).then(function(r){ return r.json(); });
+  }
+
+  function sbPatch(table, filter, data) {
+    return fetch(SB_URL + '/rest/v1/' + table + '?' + filter, {
+      method: 'PATCH',
+      headers: {
+        apikey: SB_KEY,
+        Authorization: 'Bearer ' + SB_KEY,
+        'Content-Type': 'application/json',
+        Prefer: 'return=minimal'
+      },
+      body: JSON.stringify(data)
+    });
+  }
+
+  function esc(s) {
+    return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  function platClass(plat) {
+    if(!plat) return 'email';
+    var p = plat.toLowerCase();
+    if(p.includes('linkedin')) return 'linkedin';
+    if(p.includes('twitter')) return 'twitter';
+    if(p.includes('facebook')) return 'facebook';
+    return 'email';
+  }
+
+  function platLabel(plat, isEmail) {
+    if(isEmail) return '✉️ Email Marketing';
+    var p = (plat||'').toLowerCase();
+    if(p === 'linkedin') return '💼 LinkedIn';
+    if(p === 'twitter') return '🐦 Twitter/X';
+    if(p === 'facebook') return '📘 Facebook';
+    return plat || 'Post';
+  }
+
+  function updateProgress() {
+    var total = postIds.length + emailIds.length;
+    var done  = Object.keys(reviewData).filter(function(k){ return reviewData[k].estado; }).length;
+    document.getElementById('progress-pill').textContent = done + ' / ' + total + ' revisados';
+    document.getElementById('reviewed-count').textContent = done;
+    document.getElementById('total-count').textContent   = total;
+    document.getElementById('pending-warn').style.display = (done < total && done > 0) ? '' : 'none';
+  }
+
+  function setEstado(id, estado) {
+    if(!reviewData[id]) reviewData[id] = { estado:'', nota:'', campo:'ninguno' };
+    reviewData[id].estado = estado;
+
+    // Update button active states
+    ['aprobado','rechazado','cambios'].forEach(function(s){
+      var btn = document.getElementById('btn-' + s + '-' + id);
+      if(btn){ btn.className = 'rev-btn' + (estado === (s === 'cambios' ? 'cambios_solicitados' : s) ? ' active-' + s : ''); }
+    });
+
+    // Show/hide extra fields
+    var extra = document.getElementById('extra-' + id);
+    if(extra){ extra.className = 'extra-fields' + (estado === 'aprobado' ? '' : ' visible'); }
+
+    // Show campo selector only when "cambios"
+    var campoWrap = document.getElementById('campo-wrap-' + id);
+    if(campoWrap){ campoWrap.style.display = estado === 'cambios_solicitados' ? '' : 'none'; }
+
+    // Card border
+    var card = document.getElementById('card-' + id);
+    if(card){
+      card.className = 'card' + (estado === 'aprobado' ? ' reviewed' : estado === 'rechazado' ? ' reviewed-rechazo' : estado === 'cambios_solicitados' ? ' reviewed-cambios' : '');
+    }
+
+    // Badge
+    var badge = document.getElementById('badge-' + id);
+    if(badge){
+      var labels = { aprobado:'✅ Aprobado', rechazado:'❌ Rechazado', cambios_solicitados:'🔄 Requiere cambios' };
+      var cls    = { aprobado:'aprobado', rechazado:'rechazado', cambios_solicitados:'cambios' };
+      badge.textContent  = labels[estado] || '⏳ Pendiente';
+      badge.className    = 'review-badge ' + (cls[estado] || 'pendiente');
+    }
+
+    updateProgress();
+  }
+
+  function renderCard(item, isEmail) {
+    var id    = item.post_id || item.email_id || item.id;
+    var pc    = platClass(isEmail ? 'email' : item.plat);
+    var hashes = Array.isArray(item.hashtags) ? item.hashtags.join(' ') : (item.hashtags || '');
+    var title  = isEmail ? (item.asunto || 'Sin asunto') : (item.titulo || 'Sin título');
+    var meta   = (item.fecha || '') + (item.hora ? ' · ' + item.hora : '') + (isEmail ? (item.tipo_envio ? ' · ' + item.tipo_envio.replace(/_/g,' ') : '') : (item.formato ? ' · ' + item.formato : ''));
+    var body   = isEmail ? (item.cuerpo || '') : (item.texto || '');
+    var cta    = isEmail ? ((item.cta_texto || '') + (item.cta_url ? ' → ' + item.cta_url : '')) : (item.cta || '');
+    var img    = (item.imagen_url && item.imagen_url.startsWith('http') && !item.imagen_url.startsWith('[')) ? item.imagen_url : '';
+
+    reviewData[id] = { estado:'', nota:'', campo:'ninguno' };
+
+    return '<div class="card" id="card-' + esc(id) + '">'
+      // Card header
+      + '<div class="card-header">'
+      + '<div>'
+      + '<span class="plat-badge ' + pc + '">' + platLabel(item.plat, isEmail) + '</span>'
+      + '<div class="card-meta">' + esc(meta) + '</div>'
+      + '</div>'
+      + '<span class="review-badge pendiente" id="badge-' + esc(id) + '">⏳ Pendiente</span>'
+      + '</div>'
+      // Card body
+      + '<div class="card-body">'
+      + '<div class="card-title">' + esc(title) + '</div>'
+      + (body ? '<div class="card-text">' + esc(body) + '</div>' : '')
+      + (hashes ? '<div class="card-hashes">' + esc(hashes) + '</div>' : '')
+      + (cta ? '<div class="card-cta">CTA: ' + esc(cta) + '</div>' : '')
+      + (img ? '<img class="card-img" src="' + esc(img) + '" onerror="this.style.display=\'none\'">' : '')
+      + '</div>'
+      // Review form
+      + '<div class="review-form">'
+      + '<div class="review-form-label">Tu revisión</div>'
+      + '<div class="btn-group">'
+      + '<button class="rev-btn" id="btn-aprobado-' + esc(id) + '" onclick="setEstado(\'' + esc(id) + '\',\'aprobado\')">✅ Aprobar</button>'
+      + '<button class="rev-btn" id="btn-cambios-' + esc(id) + '"  onclick="setEstado(\'' + esc(id) + '\',\'cambios_solicitados\')">🔄 Requiere cambios</button>'
+      + '<button class="rev-btn" id="btn-rechazado-' + esc(id) + '" onclick="setEstado(\'' + esc(id) + '\',\'rechazado\')">❌ Rechazar</button>'
+      + '</div>'
+      + '<div class="extra-fields" id="extra-' + esc(id) + '">'
+      + '<div>'
+      + '<div class="field-label">Notas para Eduardo</div>'
+      + '<textarea id="nota-' + esc(id) + '" placeholder="Escribe aquí tus comentarios o correcciones..." onchange="reviewData[\'' + esc(id) + '\'].nota=this.value" oninput="reviewData[\'' + esc(id) + '\'].nota=this.value"></textarea>'
+      + '</div>'
+      + '<div id="campo-wrap-' + esc(id) + '" style="display:none">'
+      + '<div class="field-label">¿Qué campo modificar?</div>'
+      + '<select onchange="reviewData[\'' + esc(id) + '\'].campo=this.value">'
+      + '<option value="ninguno">— Sin especificar —</option>'
+      + '<option value="texto">Texto / Copia</option>'
+      + '<option value="imagen">Imagen / Video</option>'
+      + '<option value="hashtags">Hashtags</option>'
+      + '<option value="cta">CTA</option>'
+      + '<option value="formato">Formato</option>'
+      + '<option value="fecha_hora">Fecha / Hora</option>'
+      + '<option value="todo">Todo el post</option>'
+      + '</select>'
+      + '</div>'
+      + '</div>' // extra-fields
+      + '</div>' // review-form
+      + '</div>'; // card
+  }
+
+  async function loadData() {
+    document.getElementById('header-semana').textContent = semana ? 'Semana del ' + semana : 'Contenido para revisión';
+
+    var posts  = [];
+    var emails = [];
+
+    try {
+      if(postIds.length){
+        var pFilter = 'post_id=in.(' + postIds.join(',') + ')&select=*';
+        posts = await sbFetch('cal_posts', pFilter);
+        if(!Array.isArray(posts)) posts = [];
+      }
+      if(emailIds.length){
+        var eFilter = 'email_id=in.(' + emailIds.join(',') + ')&select=*';
+        emails = await sbFetch('cal_emails', eFilter);
+        if(!Array.isArray(emails)) emails = [];
+      }
+    } catch(e){
+      document.getElementById('loading').innerHTML = '❌ Error al cargar. Verifica tu conexión e intenta de nuevo.';
+      return;
+    }
+
+    document.getElementById('loading').style.display = 'none';
+
+    var total = posts.length + emails.length;
+    if(!total){
+      document.getElementById('cards-container').innerHTML = '<div class="empty">No se encontraron publicaciones para este link de revisión.<br>Es posible que el link haya expirado o sea incorrecto.</div>';
+      return;
+    }
+
+    // Sort posts by plat then fecha
+    posts.sort(function(a,b){ return (a.plat||'').localeCompare(b.plat||'') || (a.fecha||'').localeCompare(b.fecha||''); });
+    emails.sort(function(a,b){ return (a.fecha||'').localeCompare(b.fecha||''); });
+
+    var html = '';
+    posts.forEach(function(p){ html += renderCard(p, false); });
+    emails.forEach(function(e){ html += renderCard(e, true); });
+
+    document.getElementById('cards-container').innerHTML = html;
+    document.getElementById('submit-bar').style.display = '';
+
+    updateProgress();
+  }
+
+  async function submitReviews() {
+    var reviewerName = document.getElementById('reviewer-name').value.trim() || 'Revisor';
+    var btn = document.getElementById('submit-btn');
+    btn.disabled = true;
+    btn.innerHTML = '<span>⏳</span> Enviando...';
+
+    var errors = 0;
+    var allIds = Object.keys(reviewData);
+
+    for(var i = 0; i < allIds.length; i++){
+      var id  = allIds[i];
+      var rev = reviewData[id];
+      if(!rev.estado) rev.estado = 'pendiente';
+
+      var notaFinal = rev.nota ? '[' + reviewerName + ']: ' + rev.nota : '[' + reviewerName + ']: Sin comentarios adicionales.';
+
+      var isEmail = emailIds.indexOf(id) >= 0;
+      var table   = isEmail ? 'cal_emails' : 'cal_posts';
+      var pkField = isEmail ? 'email_id'   : 'post_id';
+
+      var data = {
+        revision_estado:   rev.estado,
+        notas_revision:    notaFinal,
+        campo_revision:    rev.campo || 'ninguno'
+      };
+
+      // Also update post estado to 'en revisión' if not already reviewed
+      if(!isEmail && rev.estado === 'aprobado'){
+        data.estado = 'aprobado';
+      }
+
+      try {
+        var r = await sbPatch(table, pkField + '=eq.' + encodeURIComponent(id), data);
+        if(!r.ok) errors++;
+      } catch(e){ errors++; }
+    }
+
+    if(errors === 0){
+      document.getElementById('cards-container').style.display = 'none';
+      document.getElementById('submit-bar').style.display      = 'none';
+      document.getElementById('success').style.display         = 'block';
+    } else {
+      btn.disabled = false;
+      btn.innerHTML = '<span>📤</span> Enviar revisión';
+      alert('Hubo un error al enviar ' + errors + ' elemento(s). Verifica tu conexión e intenta nuevamente.');
+    }
+  }
+
+  loadData();
+</script>
+</body>
+</html>
