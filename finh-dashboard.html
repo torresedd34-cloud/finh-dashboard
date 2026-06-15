@@ -6045,9 +6045,10 @@
     var t=document.getElementById('cpm-titulo').value.trim(); if(!t){ alert('El título es obligatorio'); return; }
     var hashRaw=document.getElementById('cpm-hashtags').value;
     var hashArr=hashRaw.split(/[\s,]+/).filter(function(h){ return h.startsWith('#'); });
+    var existingPost = isNew ? null : CAL_DATA.find(function(x){ return x.id===id||x.post_id===id; });
     var o={
-      id: isNew?'p'+(calPostNextId++):id,
-      post_id: isNew?'man-'+Date.now():id,
+      id: isNew?'p'+(calPostNextId++):(existingPost?existingPost.id:id),
+      post_id: isNew?'man-'+Date.now():(existingPost?existingPost.post_id:id),
       titulo: t,
       plat: document.getElementById('cpm-plat').value,
       fecha: document.getElementById('cpm-fecha').value,
@@ -6075,7 +6076,7 @@
     var idx=CAL_DATA.findIndex(function(x){ return x.id===id||x.post_id===id; });
     if(idx<0){ calClosePostModal(); return; }
     CAL_DATA[idx].estado='en revisión';
-    sbPatch('cal_posts',{post_id:id},{estado:'en revisión'}).catch(function(){});
+    sbPatch('cal_posts','post_id=eq.'+encodeURIComponent(CAL_DATA[idx].post_id||id),{estado:'en revisión'}).catch(function(){});
     calClosePostModal(); renderCalendario();
     calState.selectedPosts=[id]; calShowReviewModal();
   }
@@ -6083,7 +6084,8 @@
   function calDeletePost(id){
     if(!confirm('¿Eliminar esta publicación?')) return;
     CAL_DATA.splice(CAL_DATA.findIndex(function(x){ return x.id===id||x.post_id===id; }),1);
-    sbDelete('cal_posts',{post_id:id}).catch(function(){});
+    var delPost=CAL_DATA.find(function(x){ return x.id===id||x.post_id===id; });
+    if(delPost&&delPost.post_id) sbDelete('cal_posts','post_id=eq.'+encodeURIComponent(delPost.post_id)).catch(function(){});
     calClosePostModal(); renderCalendario();
   }
 
@@ -6186,7 +6188,7 @@
     var ids=calState.selectedPosts;
     ids.forEach(function(id){
       var idx=CAL_DATA.findIndex(function(p){ return p.id===id||p.post_id===id; });
-      if(idx>=0){ CAL_DATA[idx].estado='en revisión'; sbPatch('cal_posts',{post_id:id},{estado:'en revisión'}).catch(function(){}); }
+      if(idx>=0){ CAL_DATA[idx].estado='en revisión'; sbPatch('cal_posts','post_id=eq.'+encodeURIComponent(CAL_DATA[idx].post_id||id),{estado:'en revisión'}).catch(function(){}); }
     });
     activosShowToast('✅ '+ids.length+' publicación(es) marcadas como "en revisión"');
     renderCalendario();
@@ -6797,7 +6799,7 @@
   // =========================================================
   var PIPE_COLS = ['idea','borrador','revision','programado','publicado'];
   var PIPE_LABELS = { idea:'💡 Idea', borrador:'✏️ Borrador', revision:'🔍 Revisión', programado:'📅 Programado', publicado:'✅ Publicado' };
-  var PIPE_DATA = [
+  var PIPE_DATA_DEFAULT = [
     { id:'cp1', titulo:'Hilo: Diferencias entre crédito y arrendamiento',    plat:'linkedin',  formato:'hilo',      col:'publicado',  fecha:'2026-06-06', notas:'' },
     { id:'cp2', titulo:'Thread: Proceso de solicitud en 60 segundos',        plat:'twitter',   formato:'hilo',      col:'publicado',  fecha:'2026-06-09', notas:'' },
     { id:'cp3', titulo:'Post: Caso de éxito sector logístico',               plat:'linkedin',  formato:'post',      col:'programado', fecha:'2026-06-14', notas:'Pendiente foto del cliente' },
@@ -6810,7 +6812,12 @@
     { id:'cp10',titulo:'Video testimonial: cliente sector salud',            plat:'facebook',  formato:'video',     col:'idea',       fecha:'2026-06-28', notas:'Coordinar con cliente Dra. Gómez' },
     { id:'cp11',titulo:'Post: Tendencias fintech México Q3 2026',            plat:'linkedin',  formato:'post',      col:'idea',       fecha:'2026-07-01', notas:'' }
   ];
+  var _savedPipe = null;
+  try { _savedPipe = JSON.parse(localStorage.getItem('finh_pipe_data')); } catch(e){}
+  var PIPE_DATA = (_savedPipe && Array.isArray(_savedPipe) && _savedPipe.length) ? _savedPipe : PIPE_DATA_DEFAULT;
   var pipeNextId = 12;
+  try { var _pni=parseInt(localStorage.getItem('finh_pipe_next_id')); if(_pni>pipeNextId) pipeNextId=_pni; } catch(e){}
+  function pipeSaveLocal(){ try{ localStorage.setItem('finh_pipe_data',JSON.stringify(PIPE_DATA)); localStorage.setItem('finh_pipe_next_id',String(pipeNextId)); }catch(e){} }
 
   function calProduccionHTML() {
     var platC = {linkedin:{bg:'#dbeafe',col:'#1d4ed8'}, twitter:{bg:'#e0f2fe',col:'#0284c7'}, facebook:{bg:'#ede9fe',col:'#6d28d9'}};
@@ -6852,18 +6859,18 @@
     var i = PIPE_COLS.indexOf(p.col);
     if(dir==='next'&&i<4) p.col=PIPE_COLS[i+1];
     if(dir==='prev'&&i>0) p.col=PIPE_COLS[i-1];
-    renderCalendario();
+    pipeSaveLocal(); renderCalendario();
   }
   function pipeDelete(id) {
     if(!confirm('¿Eliminar esta pieza de contenido?')) return;
     var i = PIPE_DATA.findIndex(function(x){ return x.id===id; });
     if(i>-1) PIPE_DATA.splice(i,1);
-    renderCalendario();
+    pipeSaveLocal(); renderCalendario();
   }
   function pipeAddCard() {
     var t = prompt('Título de la nueva idea:'); if(!t) return;
     PIPE_DATA.push({id:'cp'+(pipeNextId++),titulo:t,plat:'linkedin',formato:'post',col:'idea',fecha:'2026-07-01',notas:''});
-    renderCalendario();
+    pipeSaveLocal(); renderCalendario();
   }
 
   window.pipeMove   = pipeMove;
