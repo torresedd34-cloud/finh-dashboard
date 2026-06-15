@@ -2509,12 +2509,15 @@
           sbGet('leads', 'select=*&order=created_at.desc'),
           sbGet('cal_posts', 'select=*&order=fecha.asc,hora.asc'),
           sbGet('cal_emails', 'select=*&order=fecha.asc,hora.asc'),
-          sbGet('tendencias_historial', 'select=*&order=created_at.desc&limit=1')
+          sbGet('tendencias_historial', 'select=*&order=created_at.desc&limit=1'),
+          sbGet('cal_revisiones', 'select=*&order=created_at.asc')
         ]);
         var leadsArr  = results[0] || [];
         var postsArr  = results[1] || [];
         var emailsArr = results[2] || [];
         var tendArr   = results[3] || [];
+        var revArr    = results[4] || [];
+        if(Array.isArray(revArr)) CAL_REVISIONES = revArr;
 
         state.leads   = leadsArr;
         state.updated = new Date();
@@ -5484,6 +5487,7 @@
   var calPostNextId = 15;
   var CAL_DATA = [];
   var CAL_EMAIL_DATA = [];
+  var CAL_REVISIONES = [];
   var CAL_RECS = [
     { id:'r1', plataformas:['linkedin'],           titulo:'LinkedIn: Post sobre regulación CNBV — tema de alto interés', descripcion:'Tu competidor Konfío publicó un hilo sobre cambios regulatorios CNBV que generó +500 interacciones. Oportunidad para posicionarte como experto.', origen:'Monitor de Competencia', prioridad:'alta' },
     { id:'r2', plataformas:['twitter','facebook'],  titulo:'Comparativo: Arrendamiento vs Crédito bancario',          descripcion:'Formato de comparación es el más compartido en tu sector según datos del Monitor. Sugerido para esta semana.', origen:'Monitor de Competencia', prioridad:'alta' },
@@ -6212,8 +6216,31 @@
       +'</div>'
       +'</div>'
       +'</div>'
-      // Notas de revisión (si existen)
-      +(p.revision_estado ? '<div style="margin:0 24px 16px;padding:14px 16px;border-radius:10px;background:'+(p.revision_estado==='aprobado'?'#dcfce7':p.revision_estado==='rechazado'?'#fee2e2':'#fef3c7')+';border:1.5px solid '+(p.revision_estado==='aprobado'?'#86efac':p.revision_estado==='rechazado'?'#fca5a5':'#fde68a')+'"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><span style="font-size:13px;font-weight:800;color:'+(p.revision_estado==='aprobado'?'#16a34a':p.revision_estado==='rechazado'?'#dc2626':'#d97706')+'">'+(p.revision_estado==='aprobado'?'✅ Aprobado':p.revision_estado==='rechazado'?'❌ Rechazado':'🔄 Requiere cambios')+'</span><button onclick="calClearRevision(\''+p.id+'\')" style="font-size:11px;font-weight:600;padding:4px 10px;border-radius:6px;border:1px solid rgba(0,0,0,.12);background:rgba(255,255,255,.6);cursor:pointer;color:#374151">🗑 Limpiar</button></div>'+(p.notas_revision?'<div style="font-size:13px;color:#374151;white-space:pre-wrap;word-break:break-word">'+esc(p.notas_revision)+'</div>':'')+(p.campo_revision&&p.campo_revision!=='ninguno'?'<div style="margin-top:6px;font-size:11px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.04em">Campo a revisar: '+esc(p.campo_revision)+'</div>':'')+'</div>' : '')
+      // Comentarios de revisión (todos los revisores)
+      +(function(){
+        var pid = p.post_id||p.id;
+        var revs = CAL_REVISIONES.filter(function(r){ return r.post_id===pid; });
+        if(!revs.length) return '';
+        var estadoColors = { aprobado:{bg:'#dcfce7',border:'#86efac',text:'#16a34a',label:'✅ Aprobado'}, rechazado:{bg:'#fee2e2',border:'#fca5a5',text:'#dc2626',label:'❌ Rechazado'}, cambios_solicitados:{bg:'#fef3c7',border:'#fde68a',text:'#d97706',label:'🔄 Requiere cambios'}, pendiente:{bg:'#f3f4f6',border:'#e5e7eb',text:'#6b7280',label:'⏳ Pendiente'} };
+        var rows = revs.map(function(r){
+          var ec = estadoColors[r.estado]||estadoColors.pendiente;
+          var fecha = r.created_at ? r.created_at.slice(0,10) : '';
+          return '<div style="padding:10px 12px;border-radius:8px;background:'+ec.bg+';border:1px solid '+ec.border+';margin-bottom:8px">'
+            +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:'+(r.nota?'6px':'0')+'">'
+            +'<span style="font-size:12px;font-weight:800;color:'+ec.text+'">'+ec.label+'</span>'
+            +'<span style="font-size:11px;color:#6b7280">'+esc(r.revisor)+(fecha?' · '+fecha:'')+'</span>'
+            +'</div>'
+            +(r.nota?'<div style="font-size:12px;color:#374151;white-space:pre-wrap;word-break:break-word">'+esc(r.nota)+'</div>':'')
+            +'</div>';
+        }).join('');
+        return '<div style="margin:0 24px 16px">'
+          +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">'
+          +'<span style="font-size:11px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.04em">💬 Comentarios de revisión ('+revs.length+')</span>'
+          +'<button onclick="calClearRevision(\''+esc(pid)+'\')" style="font-size:11px;font-weight:600;padding:3px 9px;border-radius:6px;border:1px solid #fecaca;background:#fef2f2;cursor:pointer;color:#ef4444">🗑 Limpiar</button>'
+          +'</div>'
+          +rows
+          +'</div>';
+      })()
       // Footer
       +'<div style="padding:14px 24px;border-top:1px solid var(--border);display:flex;gap:8px;align-items:center">'
       +(!isNew?'<button onclick="calDeletePost(\''+p.id+'\')" style="padding:9px 16px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;border:1px solid #fecaca;background:#fef2f2;color:#ef4444">🗑 Eliminar</button>':'')
@@ -6595,13 +6622,21 @@
   }
 
   async function calClearRevision(postId){
-    if(!confirm('¿Eliminar las notas de revisión de esta publicación?')) return;
-    await sbPatch('cal_posts','post_id=eq.'+encodeURIComponent(postId),{revision_estado:'',notas_revision:'',campo_revision:''});
+    if(!confirm('¿Eliminar todos los comentarios de revisión de esta publicación?')) return;
+    // Borrar filas en cal_revisiones
+    await fetch(SUPABASE_URL+'/rest/v1/cal_revisiones?post_id=eq.'+encodeURIComponent(postId),{
+      method:'DELETE',
+      headers:{apikey:SUPABASE_KEY,Authorization:'Bearer '+SUPABASE_KEY,Prefer:'return=minimal'}
+    });
+    // Limpiar estado caché en cal_posts
+    await sbPatch('cal_posts','post_id=eq.'+encodeURIComponent(postId),{revision_estado:'',notas_revision:''});
+    // Actualizar local
+    CAL_REVISIONES = CAL_REVISIONES.filter(function(r){ return r.post_id!==postId; });
     var p=CAL_DATA.find(function(x){ return x.post_id===postId||x.id===postId; });
-    if(p){ p.revision_estado=''; p.notas_revision=''; p.campo_revision=''; }
+    if(p){ p.revision_estado=''; p.notas_revision=''; }
     calClosePostModal();
     calShowPostModal(postId);
-    activosShowToast('Notas de revisión eliminadas');
+    activosShowToast('Comentarios de revisión eliminados');
   }
 
   function calImprimirMachote(){
@@ -7289,8 +7324,9 @@
   // =========================================================
   // CALENDARIO — 4to TAB: PIPELINE DE PRODUCCIÓN
   // =========================================================
-  var PIPE_COLS = ['idea','borrador','revision','aprobado','programado','publicado'];
-  var PIPE_LABELS = { idea:'💡 Idea', borrador:'✏️ Borrador', revision:'🔍 Revisión', aprobado:'⭐ Aprobado', programado:'📅 Programado', publicado:'✅ Publicado' };
+  var PIPE_COLS = ['idea','borrador','revision','aprobado','rechazado','programado','publicado'];
+  var PIPE_LABELS = { idea:'💡 Idea', borrador:'✏️ Borrador', revision:'🔍 Revisión', aprobado:'⭐ Aprobado', rechazado:'🚫 Rechazado', programado:'📅 Programado', publicado:'✅ Publicado' };
+  function pipeGetCol(p){ if(p.revision_estado==='aprobado') return 'aprobado'; if(p.revision_estado==='rechazado') return 'rechazado'; return p.estado||'idea'; }
   var PIPE_DATA_DEFAULT = [
     { id:'cp1', titulo:'Hilo: Diferencias entre crédito y arrendamiento',    plat:'linkedin',  formato:'hilo',      col:'publicado',  fecha:'2026-06-06', notas:'' },
     { id:'cp2', titulo:'Thread: Proceso de solicitud en 60 segundos',        plat:'twitter',   formato:'hilo',      col:'publicado',  fecha:'2026-06-09', notas:'' },
@@ -7346,18 +7382,27 @@
     return '<div style="display:flex;gap:12px;overflow-x:auto;padding-bottom:8px">'+cols+'</div>';
   }
 
-  function pipeMove(id, dir) {
-    var p = PIPE_DATA.find(function(x){ return x.id===id; }); if(!p) return;
-    var i = PIPE_COLS.indexOf(p.col);
-    if(dir==='next'&&i<5) p.col=PIPE_COLS[i+1];
-    if(dir==='prev'&&i>0) p.col=PIPE_COLS[i-1];
-    pipeSaveLocal(); renderCalendario();
+  async function pipeMove(id, dir) {
+    var p = CAL_DATA.find(function(x){ return (x.post_id||x.id)===id; }); if(!p) return;
+    var cur = pipeGetCol(p);
+    var i = PIPE_COLS.indexOf(cur);
+    var newCol = dir==='next'&&i<PIPE_COLS.length-1 ? PIPE_COLS[i+1] : dir==='prev'&&i>0 ? PIPE_COLS[i-1] : null;
+    if(!newCol) return;
+    var patch = {};
+    if(newCol==='aprobado'){ patch.revision_estado='aprobado'; }
+    else if(newCol==='rechazado'){ patch.revision_estado='rechazado'; }
+    else { patch.estado=newCol; patch.revision_estado=''; }
+    await sbPatch('cal_posts','post_id=eq.'+encodeURIComponent(id),patch);
+    if(patch.estado) p.estado=patch.estado;
+    if(patch.revision_estado!==undefined) p.revision_estado=patch.revision_estado;
+    renderCalendario();
   }
-  function pipeDelete(id) {
-    if(!confirm('¿Eliminar esta pieza de contenido?')) return;
-    var i = PIPE_DATA.findIndex(function(x){ return x.id===id; });
-    if(i>-1) PIPE_DATA.splice(i,1);
-    pipeSaveLocal(); renderCalendario();
+  async function pipeDelete(id) {
+    if(!confirm('¿Eliminar esta publicación?')) return;
+    await sbPatch('cal_posts','post_id=eq.'+encodeURIComponent(id),{estado:'eliminado'});
+    var i = CAL_DATA.findIndex(function(x){ return (x.post_id||x.id)===id; });
+    if(i>-1) CAL_DATA.splice(i,1);
+    renderCalendario();
   }
   function pipeAddCard() {
     var t = prompt('Título de la nueva idea:'); if(!t) return;
@@ -7940,82 +7985,88 @@
   // =========================================================
   var PIPE_APROBACIONES = [];
 
-  function pipeAprobar(id) {
-    var p = PIPE_DATA.find(function(x){ return x.id===id; }); if(!p) return;
-    p.col = 'aprobado';
-    PIPE_APROBACIONES.push({ id:id, accion:'aprobado', fecha: new Date().toISOString().slice(0,10), titulo:p.titulo });
+  async function pipeAprobar(id) {
+    var p = CAL_DATA.find(function(x){ return (x.post_id||x.id)===id; }); if(!p) return;
+    await sbPatch('cal_posts','post_id=eq.'+encodeURIComponent(id),{revision_estado:'aprobado'});
+    p.revision_estado = 'aprobado';
     activosShowToast('✅ Contenido aprobado');
     renderCalendario();
   }
-  function pipeRechazar(id) {
+  async function pipeRechazar(id) {
     var motivo = prompt('Motivo del rechazo (opcional):') || '';
-    var p = PIPE_DATA.find(function(x){ return x.id===id; }); if(!p) return;
-    p.col = 'borrador';
-    p.notas = motivo ? 'Rechazado: ' + motivo : 'Rechazado — regresar a borrador';
-    PIPE_APROBACIONES.push({ id:id, accion:'rechazado', fecha: new Date().toISOString().slice(0,10), titulo:p.titulo, motivo:motivo });
-    activosShowToast('Contenido regresado a Borrador');
+    var p = CAL_DATA.find(function(x){ return (x.post_id||x.id)===id; }); if(!p) return;
+    var patch = { revision_estado:'rechazado' };
+    if(motivo) patch.notas_revision = '[Eduardo]: '+motivo;
+    await sbPatch('cal_posts','post_id=eq.'+encodeURIComponent(id),patch);
+    p.revision_estado = 'rechazado';
+    if(motivo) p.notas_revision = patch.notas_revision;
+    activosShowToast('🚫 Contenido rechazado');
     renderCalendario();
   }
   window.pipeAprobar  = pipeAprobar;
   window.pipeRechazar = pipeRechazar;
+  window.loadData     = loadData;
 
-  // parchar calProduccionHTML para mostrar botones de aprobación en columna revision
-  var _calProduccionHTMLOrig = calProduccionHTML;
+  // Pipeline usa CAL_DATA real de Supabase
   calProduccionHTML = function() {
     var platC = {linkedin:{bg:'#dbeafe',col:'#1d4ed8'}, twitter:{bg:'#e0f2fe',col:'#0284c7'}, facebook:{bg:'#ede9fe',col:'#6d28d9'}};
+    var colColor = {idea:'#6b7280',borrador:'#f59e0b',revision:'#3b82f6',aprobado:'#16a34a',rechazado:'#dc2626',programado:'#8b5cf6',publicado:'#10b981'};
+    var colBorder = {revision:'#3b82f6',aprobado:'#86efac',rechazado:'#fca5a5'};
+    var colShadow = {revision:';box-shadow:0 0 0 2px #bfdbfe',aprobado:';box-shadow:0 0 0 2px #bbf7d0',rechazado:';box-shadow:0 0 0 2px #fee2e2'};
+
+    // Filtrar posts reales (excluir eliminados)
+    var allPosts = CAL_DATA.filter(function(p){ return p.estado !== 'eliminado'; });
+
+    var reloadBtn = '<button onclick="loadData()" title="Recargar desde Supabase" style="padding:5px 12px;border-radius:7px;border:1px solid var(--border);background:var(--card);font-size:11px;font-weight:700;cursor:pointer;color:var(--text-muted);margin-bottom:14px">🔄 Actualizar</button>';
+
     var cols = PIPE_COLS.map(function(col){
-      var cards = PIPE_DATA.filter(function(p){ return p.col===col; });
-      var colColor = {idea:'#6b7280',borrador:'#f59e0b',revision:'#3b82f6',aprobado:'#16a34a',programado:'#8b5cf6',publicado:'#10b981'}[col]||'#6b7280';
+      var cards = allPosts.filter(function(p){ return pipeGetCol(p)===col; });
+      var cc = colColor[col]||'#6b7280';
       var cardsHtml = cards.map(function(p){
+        var pid = p.post_id||p.id;
         var pc = platC[p.plat]||{bg:'#f1f5f9',col:'#64748b'};
         var fmtIco = {hilo:'🧵',reel:'🎬',post:'📝',carrusel:'🖼',infografia:'📊',articulo:'📄',story:'⭕',video:'🎥'}[p.formato]||'📝';
-        var prevBtn = PIPE_COLS.indexOf(col)>0 && col!=='revision' ? '<button onclick="pipeMove(\''+p.id+'\',\'prev\')" style="background:none;border:1px solid var(--border);border-radius:5px;padding:2px 6px;font-size:10px;cursor:pointer;color:var(--text-muted)">◀</button>' : '';
-        var nextBtn = PIPE_COLS.indexOf(col)<5 && col!=='revision' ? '<button onclick="pipeMove(\''+p.id+'\',\'next\')" style="background:none;border:1px solid '+colColor+';border-radius:5px;padding:2px 6px;font-size:10px;cursor:pointer;color:'+colColor+';font-weight:700">▶</button>' : '';
+        var colIdx = PIPE_COLS.indexOf(col);
+        var noNavCols = {revision:1, aprobado:1, rechazado:1};
+        var prevBtn = colIdx>0 && !noNavCols[col] ? '<button onclick="pipeMove(\''+pid+'\',\'prev\')" style="background:none;border:1px solid var(--border);border-radius:5px;padding:2px 6px;font-size:10px;cursor:pointer;color:var(--text-muted)">◀</button>' : '';
+        var nextBtn = colIdx<PIPE_COLS.length-1 && !noNavCols[col] ? '<button onclick="pipeMove(\''+pid+'\',\'next\')" style="background:none;border:1px solid '+cc+';border-radius:5px;padding:2px 6px;font-size:10px;cursor:pointer;color:'+cc+';font-weight:700">▶</button>' : '';
         var approvalBtns = col==='revision'
           ? '<div style="display:flex;gap:6px;margin-top:8px">'
-            +'<button onclick="pipeAprobar(\''+p.id+'\')" style="flex:1;padding:5px 0;background:#dcfce7;border:none;border-radius:6px;cursor:pointer;font-size:11px;font-weight:700;color:#16a34a">✅ Aprobar</button>'
-            +'<button onclick="pipeRechazar(\''+p.id+'\')" style="flex:1;padding:5px 0;background:#fee2e2;border:none;border-radius:6px;cursor:pointer;font-size:11px;font-weight:700;color:#dc2626">❌ Rechazar</button>'
+            +'<button onclick="pipeAprobar(\''+pid+'\')" style="flex:1;padding:5px 0;background:#dcfce7;border:none;border-radius:6px;cursor:pointer;font-size:11px;font-weight:700;color:#16a34a">✅ Aprobar</button>'
+            +'<button onclick="pipeRechazar(\''+pid+'\')" style="flex:1;padding:5px 0;background:#fee2e2;border:none;border-radius:6px;cursor:pointer;font-size:11px;font-weight:700;color:#dc2626">❌ Rechazar</button>'
             +'</div>'
+          : col==='rechazado'
+          ? '<div style="margin-top:8px"><button onclick="pipeMove(\''+pid+'\',\'prev\')" style="width:100%;padding:5px 0;background:#fef3c7;border:none;border-radius:6px;cursor:pointer;font-size:11px;font-weight:700;color:#d97706">🔄 Regresar a Revisión</button></div>'
           : '';
-        var hasObs = col==='revision' && p.notas && p.notas.indexOf('Rechazado')!==0;
-        var cardBorder = col==='revision'?'#3b82f6':col==='aprobado'?'#86efac':'var(--border)';
-        var cardShadow = col==='revision'?';box-shadow:0 0 0 2px #bfdbfe':col==='aprobado'?';box-shadow:0 0 0 2px #bbf7d0':'';
-        return '<div style="background:var(--card);border:1px solid '+cardBorder+';border-radius:10px;padding:12px;margin-bottom:8px'+cardShadow+'">'
-          +'<div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:6px;line-height:1.4;display:flex;justify-content:space-between;align-items:flex-start;gap:6px"><span>'+fmtIco+' '+esc(p.titulo)+'</span>'+(hasObs?'<span style="background:#fee2e2;color:#dc2626;border-radius:4px;padding:1px 6px;font-size:10px;font-weight:700;white-space:nowrap;flex-shrink:0">🔴 Obs.</span>':'')+'</div>'
-          +'<div style="display:flex;gap:5px;margin-bottom:8px;flex-wrap:wrap;align-items:center">'
-          +'<span style="background:'+pc.bg+';color:'+pc.col+';border-radius:4px;padding:1px 7px;font-size:10px;font-weight:700">'+p.plat+'</span>'
-          +'<span style="background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:1px 7px;font-size:10px;color:var(--text-muted)">'+p.formato+'</span>'
-          +'<span style="font-size:10px;color:var(--text-muted);margin-left:auto">'+p.fecha.slice(5).replace('-','/')+'</span>'
+        var hasObs = (col==='revision'||col==='rechazado') && p.notas_revision;
+        var border = colBorder[col]||'var(--border)';
+        var shadow = colShadow[col]||'';
+        var nota = p.notas_revision||'';
+        return '<div style="background:var(--card);border:1px solid '+border+';border-radius:10px;padding:12px;margin-bottom:8px'+shadow+'">'
+          +'<div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:6px;line-height:1.4;display:flex;justify-content:space-between;align-items:flex-start;gap:6px">'
+          +'<span>'+fmtIco+' '+esc(p.titulo||'Sin título')+'</span>'
+          +(hasObs?'<span style="background:#fee2e2;color:#dc2626;border-radius:4px;padding:1px 6px;font-size:10px;font-weight:700;white-space:nowrap;flex-shrink:0">🔴 Obs.</span>':'')
           +'</div>'
-          +(p.notas?'<div style="font-size:10px;color:'+(p.notas.indexOf('Rechazado')===0?'#dc2626':'var(--text-muted)')+';font-style:italic;margin-bottom:6px;padding:4px 6px;background:var(--bg);border-radius:5px">'+(p.notas.indexOf('Rechazado')===0?'⚠️ ':'📌 ')+esc(p.notas)+'</div>':'')
+          +'<div style="display:flex;gap:5px;margin-bottom:8px;flex-wrap:wrap;align-items:center">'
+          +'<span style="background:'+pc.bg+';color:'+pc.col+';border-radius:4px;padding:1px 7px;font-size:10px;font-weight:700">'+(p.plat||'')+'</span>'
+          +(p.formato?'<span style="background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:1px 7px;font-size:10px;color:var(--text-muted)">'+p.formato+'</span>':'')
+          +'<span style="font-size:10px;color:var(--text-muted);margin-left:auto">'+(p.fecha?p.fecha.slice(5).replace('-','/'):'')+'</span>'
+          +'</div>'
+          +(nota?'<div style="font-size:10px;color:var(--text-muted);font-style:italic;margin-bottom:6px;padding:4px 6px;background:var(--bg);border-radius:5px">💬 '+esc(nota)+'</div>':'')
           +approvalBtns
-          +(col!=='revision'?'<div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px"><div style="display:flex;gap:4px">'+prevBtn+nextBtn+'</div><button onclick="pipeDelete(\''+p.id+'\')" style="background:none;border:none;cursor:pointer;font-size:11px;color:#ef4444;padding:0">🗑</button></div>':'')
+          +(!noNavCols[col]?'<div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px"><div style="display:flex;gap:4px">'+prevBtn+nextBtn+'</div><button onclick="pipeDelete(\''+pid+'\')" style="background:none;border:none;cursor:pointer;font-size:11px;color:#ef4444;padding:0">🗑</button></div>':'')
           +'</div>';
       }).join('');
-      var histCount = PIPE_APROBACIONES.filter(function(a){ return PIPE_DATA.find(function(p){ return p.id===a.id&&p.col===col; }); }).length;
-      return '<div style="flex:1;min-width:180px">'
+      return '<div style="flex:0 0 200px;min-width:200px">'
         +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">'
-        +'<div style="font-size:12px;font-weight:700;color:'+colColor+'">'+PIPE_LABELS[col]+'</div>'
-        +'<span style="background:'+colColor+'22;color:'+colColor+';border-radius:20px;padding:1px 9px;font-size:11px;font-weight:700">'+cards.length+'</span>'
+        +'<div style="font-size:12px;font-weight:700;color:'+cc+'">'+PIPE_LABELS[col]+'</div>'
+        +'<span style="background:'+cc+'22;color:'+cc+';border-radius:20px;padding:1px 9px;font-size:11px;font-weight:700">'+cards.length+'</span>'
         +'</div>'
         +cardsHtml
         +(col==='idea'?'<button onclick="pipeAddCard()" style="width:100%;padding:8px;background:none;border:2px dashed var(--border);border-radius:8px;cursor:pointer;font-size:12px;color:var(--text-muted);font-weight:600">+ Nueva idea</button>':'')
         +'</div>';
     }).join('');
-    var histHtml = PIPE_APROBACIONES.length
-      ? '<div style="margin-top:20px;padding:14px 16px;background:var(--bg);border-radius:10px;border:1px solid var(--border)">'
-        +'<div style="font-size:12px;font-weight:700;margin-bottom:10px">Historial de aprobaciones</div>'
-        +PIPE_APROBACIONES.slice().reverse().map(function(a){
-          return '<div style="font-size:11px;padding:4px 0;border-bottom:1px solid var(--border);display:flex;gap:8px;align-items:center">'
-            +'<span>'+(a.accion==='aprobado'?'✅':'❌')+'</span>'
-            +'<span style="flex:1;color:var(--text)">'+esc(a.titulo)+'</span>'
-            +'<span style="color:var(--text-muted)">'+a.fecha+'</span>'
-            +(a.motivo?'<span style="color:#dc2626;font-style:italic">'+esc(a.motivo)+'</span>':'')
-            +'</div>';
-        }).join('')
-        +'</div>'
-      : '';
-    return '<div style="display:flex;gap:12px;overflow-x:auto;padding-bottom:8px">'+cols+'</div>'+histHtml;
+    return reloadBtn+'<div style="display:flex;gap:12px;overflow-x:auto;padding-bottom:8px">'+cols+'</div>';
   };
 
   // =========================================================
