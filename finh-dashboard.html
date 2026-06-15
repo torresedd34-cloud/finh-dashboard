@@ -5941,9 +5941,17 @@
   var FORMATOS_POST = ['imagen','carrusel','video','reel','historia','texto','encuesta','infografía','hilo','tip','frase'];
   var OBJETIVOS_POST = ['generar leads','educativo','brand awareness','engagement','conversión','anuncio','caso de éxito','tendencia'];
 
+  var PLAT_DEFAULTS = {
+    twitter:  { formato:'encuesta', objetivo:'generar leads',   hashtags:'#FinhTePresta #SomosFinh #CrecimientoFinh', cta:'→ finh.mx · (55) 6798 1672 · Escríbenos',        descargo:'Sujeto a estudio y aprobación. Consulta T y C.',                                    chips:['foto corporativa','empresario mexicano','dato estadístico','texto sobre fondo azul','encuesta visual','estilo minimalista','colores Finh'] },
+    linkedin: { formato:'carrusel',  objetivo:'educativo',       hashtags:'#SomosFinh #FinhContigo #TuSOFOMdeConfianza', cta:'→ Agenda tu consulta sin costo en finh.mx',       descargo:'Sujeto a aprobación. Monto mín: $2M MDP. Sin MOP 04+. Aplican restricciones. Consulta términos en finh.mx', chips:['infografía profesional','carrusel LinkedIn','caso de éxito empresarial','empresario en reunión','datos y estadísticas','estilo corporativo azul','foto ejecutiva'] },
+    facebook: { formato:'imagen',    objetivo:'engagement',      hashtags:'#FinhTePresta #SomosFinh #FinhTeImpulsa',    cta:'→ Contáctanos al (55) 6798 1672 · finh.mx',       descargo:'Sujeto a estudio y aprobación. Consulta T y C.',                                    chips:['reel dinámico','imagen lifestyle','frase motivacional','empresario exitoso','fondo degradado azul rojo','producto financiero visual','infografía colorida'] }
+  };
+
   function calShowPostModal(post,fecha){
     var isNew=!post;
-    var p=post||{id:'',fecha:fecha||new Date().toISOString().slice(0,10),plat:'linkedin',titulo:'',estado:'borrador',texto:'',formato:'imagen',objetivo:'educativo',hashtags:[],cta:'',descargo_legal:false,idea_visual:'',prompt_imagen:'',imagen_url:''};
+    var defPlat = (post&&post.plat)||'linkedin';
+    var pd = PLAT_DEFAULTS[defPlat]||PLAT_DEFAULTS.linkedin;
+    var p=post||{id:'',fecha:fecha||new Date().toISOString().slice(0,10),plat:defPlat,titulo:'',estado:'borrador',texto:'',formato:pd.formato,objetivo:pd.objetivo,hashtags:[],cta:pd.cta,descargo_legal:false,idea_visual:'',prompt_imagen:'',imagen_url:''};
     var ex=document.getElementById('cal-post-modal'); if(ex) ex.remove();
     var INP='width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;background:var(--bg);color:var(--text)';
     var LBL='display:block;font-size:11px;font-weight:700;color:var(--text2);margin-bottom:4px;text-transform:uppercase;letter-spacing:.04em';
@@ -5973,7 +5981,7 @@
       +'<div><label style="'+LBL+'">Título</label><input id="cpm-titulo" value="'+esc(p.titulo)+'" placeholder="Tema o título descriptivo del post" style="'+INP+'"></div>'
       // Fila: Plataforma | Fecha | Hora | Estado
       +'<div style="display:grid;grid-template-columns:1.2fr 1fr 1fr 1fr;gap:10px">'
-      +'<div><label style="'+LBL+'">Plataforma</label><select id="cpm-plat" style="'+INP+'">'+pOpts+'</select></div>'
+      +'<div><label style="'+LBL+'">Plataforma</label><select id="cpm-plat" style="'+INP+'" onchange="calPlatDefaults(this.value)">'+pOpts+'</select></div>'
       +'<div><label style="'+LBL+'">Fecha</label><input type="date" id="cpm-fecha" value="'+p.fecha+'" style="'+INP+'"></div>'
       +'<div><label style="'+LBL+'">Hora</label><input type="time" id="cpm-hora" value="'+(p.hora||'')+'" style="'+INP+'"></div>'
       +'<div><label style="'+LBL+'">Estado</label><select id="cpm-estado" style="'+INP+'">'+eOpts+'</select></div>'
@@ -6008,7 +6016,7 @@
       +'<label style="'+LBL+';color:#4f46e5">🤖 Prompt para generar imagen / video con IA</label>'
       +'<textarea id="cpm-prompt" rows="3" placeholder="Ej: Fotografia corporativa de empresario mexicano revisando documentos, estilo limpio profesional, colores azul y rojo Finh, logo en esquina inferior..." style="width:100%;padding:9px 12px;border:1.5px solid #c7d2fe;border-radius:8px;font-size:13px;background:#fff;color:var(--text);resize:vertical;font-family:inherit;line-height:1.6">'+esc(p.prompt_imagen||'')+'</textarea>'
       +'<div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">'
-      +['foto corporativa','empresario mexicano','infografía minimalista','reel animado','datos y estadísticas','fondo abstracto azul','producto financiero'].map(function(s){ return '<span onclick="calAddPromptChip(\''+s+'\')" style="font-size:10px;padding:3px 9px;background:#e0e7ff;color:#4338ca;border-radius:6px;cursor:pointer;font-weight:600">+'+s+'</span>'; }).join('')
+      +'<div id="cpm-prompt-chips" style="display:contents"></div>'
       +'</div></div>'
       // Subir imagen/video
       +'<div style="border:2px dashed var(--border);border-radius:10px;padding:16px;text-align:center">'
@@ -6028,15 +6036,34 @@
       +'</div></div>';
     document.body.appendChild(div);
     div.addEventListener('click',function(e){ if(e.target===div) calClosePostModal(); });
+    calInitPlatDefaults();
   }
 
-  function calPreviewFile(input){
+  async function calPreviewFile(input){
     var file=input.files[0]; if(!file) return;
     var prev=document.getElementById('cpm-file-preview');
-    var url=URL.createObjectURL(file);
-    if(file.type.startsWith('image/')){ prev.innerHTML='<img src="'+url+'" style="max-height:120px;border-radius:8px;max-width:100%">'; }
-    else if(file.type.startsWith('video/')){ prev.innerHTML='<video src="'+url+'" controls style="max-height:120px;border-radius:8px;max-width:100%"></video>'; }
-    document.getElementById('cpm-imagen-url').value='[archivo: '+file.name+']';
+    var urlField=document.getElementById('cpm-imagen-url');
+    // Preview local inmediato
+    var localUrl=URL.createObjectURL(file);
+    if(file.type.startsWith('image/')){ prev.innerHTML='<img src="'+localUrl+'" style="max-height:120px;border-radius:8px;max-width:100%">'; }
+    else if(file.type.startsWith('video/')){ prev.innerHTML='<video src="'+localUrl+'" controls style="max-height:120px;border-radius:8px;max-width:100%"></video>'; }
+    urlField.value='Subiendo...';
+    // Subir a Supabase Storage
+    try {
+      var ext=file.name.split('.').pop();
+      var fileName='post-'+Date.now()+'.'+ext;
+      var res=await fetch(SUPABASE_URL+'/storage/v1/object/post-media/'+fileName,{
+        method:'POST',
+        headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Content-Type':file.type,'x-upsert':'true'},
+        body:file
+      });
+      if(res.ok){
+        var publicUrl=SUPABASE_URL+'/storage/v1/object/public/post-media/'+fileName;
+        urlField.value=publicUrl;
+      } else {
+        urlField.value='[error al subir: '+res.status+']';
+      }
+    } catch(e){ urlField.value='[error: '+e.message+']'; }
   }
 
   function calClosePostModal(){ var e=document.getElementById('cal-post-modal'); if(e) e.remove(); }
@@ -6082,6 +6109,28 @@
   }
 
   function calAddPromptChip(s){ var el=document.getElementById('cpm-prompt'); if(el) el.value+=(el.value?', ':'')+s; }
+
+  function calPlatDefaults(plat){
+    var pd=PLAT_DEFAULTS[plat]||PLAT_DEFAULTS.linkedin;
+    // Solo rellena si el campo está vacío o tiene el valor del placeholder anterior
+    var fmtEl=document.getElementById('cpm-formato'); if(fmtEl) fmtEl.value=pd.formato;
+    var objEl=document.getElementById('cpm-objetivo'); if(objEl) objEl.value=pd.objetivo;
+    var ctaEl=document.getElementById('cpm-cta'); if(ctaEl&&!ctaEl.value.trim()) ctaEl.value=pd.cta;
+    var hshEl=document.getElementById('cpm-hashtags'); if(hshEl&&!hshEl.value.trim()) hshEl.value=pd.hashtags;
+    // Actualizar color del header
+    var hdr=document.querySelector('#cal-post-modal>div>div:first-child');
+    if(hdr){ var pc={linkedin:'#1d4ed8',twitter:'#1da1f2',facebook:'#6d28d9'}; hdr.style.background=pc[plat]||'#1d4ed8'; }
+    // Actualizar chips de IA
+    var chipsEl=document.getElementById('cpm-prompt-chips');
+    if(chipsEl) chipsEl.innerHTML=pd.chips.map(function(s){ return '<span onclick="calAddPromptChip(\''+s+'\')" style="font-size:10px;padding:3px 9px;background:#e0e7ff;color:#4338ca;border-radius:6px;cursor:pointer;font-weight:600;display:inline-block">+'+s+'</span>'; }).join(' ');
+  }
+
+  function calInitPlatDefaults(){
+    var platEl=document.getElementById('cpm-plat'); if(!platEl) return;
+    var plat=platEl.value; var pd=PLAT_DEFAULTS[plat]||PLAT_DEFAULTS.linkedin;
+    var chipsEl=document.getElementById('cpm-prompt-chips');
+    if(chipsEl) chipsEl.innerHTML=pd.chips.map(function(s){ return '<span onclick="calAddPromptChip(\''+s+'\')" style="font-size:10px;padding:3px 9px;background:#e0e7ff;color:#4338ca;border-radius:6px;cursor:pointer;font-weight:600;display:inline-block">+'+s+'</span>'; }).join(' ');
+  }
 
   function calDeletePost(id){
     if(!confirm('¿Eliminar esta publicación?')) return;
