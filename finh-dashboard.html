@@ -6593,20 +6593,20 @@
     });
     renderCalendario();
 
-    // ── 1. Descargar el archivo automáticamente ──────────────────────────────
+    // ── 1. Descargar machote HTML ─────────────────────────────────────────────
     var blob=new Blob([html],{type:'text/html;charset=utf-8'});
     var dlUrl=URL.createObjectURL(blob);
     var a=document.createElement('a'); a.href=dlUrl; a.download=fileName;
     document.body.appendChild(a); a.click();
     setTimeout(function(){ document.body.removeChild(a); URL.revokeObjectURL(dlUrl); },1000);
 
-    // ── 2. Abrir correo prellenado ───────────────────────────────────────────
+    // ── 2. Generar correo HTML como .eml ─────────────────────────────────────
     var platLines=[];
     ['linkedin','twitter','facebook'].forEach(function(pl){
       var pp=posts.filter(function(p){ return p.plat===pl; });
-      if(pp.length) platLines.push('  • '+(pl==='linkedin'?'LinkedIn':pl==='twitter'?'Twitter/X':'Facebook')+' ('+pp.length+'): '+pp.map(function(p){ return p.titulo||'Sin título'; }).join(', '));
+      if(pp.length) platLines.push('<li style="margin-bottom:4px"><strong>'+(pl==='linkedin'?'LinkedIn':pl==='twitter'?'Twitter/X':'Facebook')+'</strong> ('+pp.length+'): '+pp.map(function(p){ return escH(p.titulo||'Sin título'); }).join(', ')+'</li>');
     });
-    if(selEmails.length) platLines.push('  • Email Marketing ('+selEmails.length+'): '+selEmails.map(function(e){ return e.asunto||'Sin asunto'; }).join(', '));
+    if(selEmails.length) platLines.push('<li style="margin-bottom:4px"><strong>Email Marketing</strong> ('+selEmails.length+'): '+selEmails.map(function(e){ return escH(e.asunto||'Sin asunto'); }).join(', ')+'</li>');
 
     var reviewPostIds=posts.map(function(p){ return p.post_id||p.id; }).join(',');
     var reviewEmailIds=selEmails.map(function(e){ return e.email_id||e.id; }).join(',');
@@ -6615,20 +6615,61 @@
       +(reviewPostIds&&reviewEmailIds?'&':'')
       +(reviewEmailIds?'eids='+encodeURIComponent(reviewEmailIds):'')
       +(fechaSemana?'&semana='+encodeURIComponent(fechaSemana):'');
-    var subject='Machote de Revisión — Publicaciones Finh (semana '+fechaSemana+')';
-    var body='Hola,\n\n'
-      +'Te comparto el machote de revisión de contenido para la semana del '+fechaSemana+'.\n\n'
-      +'Elementos incluidos ('+total+' en total):\n'+platLines.join('\n')+'\n\n'
-      +'El archivo adjunto contiene el machote completo — ábrelo en el navegador e imprime como PDF si lo necesitas.\n\n'
-      +'🔎 REVIEW FINH — Portal de revisión (sin necesidad de cuenta):\n'+reviewUrl+'\n\n'
-      +'Por favor comparte tus comentarios a la brevedad.\n\n'
-      +'Gracias,\nEduardo Torres\nFinh Soluciones Económicas\n(55) 6798 1672 | finh.mx';
+
+    var logoUrl='https://torresedd34-cloud.github.io/finh-dashboard/logo-finh.png';
+    var emailHtml='<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"></head><body style="margin:0;padding:0;background:#f4f4f4;font-family:Arial,sans-serif">'
+      +'<table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f4;padding:24px 0"><tr><td align="center">'
+      +'<table width="600" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,.1)">'
+      // Header
+      +'<tr><td style="background:#fff;padding:20px 32px;border-bottom:3px solid #1d4ed8;display:flex;align-items:center">'
+      +'<table width="100%"><tr>'
+      +'<td><img src="'+logoUrl+'" height="44" alt="Finh" style="height:44px;display:block"></td>'
+      +'<td align="right" style="font-size:11px;color:#6b7280;line-height:1.5">Finh Soluciones Económicas, S.A.P.I. de C.V.<br>SOFOM, E.N.R.</td>'
+      +'</tr></table>'
+      +'</td></tr>'
+      // Body
+      +'<tr><td style="padding:32px 32px 24px">'
+      +'<p style="font-size:15px;font-weight:700;color:#111827;margin:0 0 16px">Hola,</p>'
+      +'<p style="font-size:14px;color:#374151;line-height:1.7;margin:0 0 16px">Te comparto el <strong>machote de revisión de contenido</strong> para la semana del <strong>'+escH(fechaSemana)+'</strong>. El archivo adjunto contiene el machote completo — ábrelo en el navegador e imprímelo como PDF si lo necesitas.</p>'
+      +'<p style="font-size:13px;font-weight:700;color:#374151;margin:0 0 8px">Contenido incluido ('+total+' elementos):</p>'
+      +'<ul style="font-size:13px;color:#374151;padding-left:20px;margin:0 0 24px">'+platLines.join('')+'</ul>'
+      +'<p style="font-size:14px;color:#374151;line-height:1.7;margin:0 0 20px">Por favor revisa cada publicación y deja tus comentarios directamente en el portal — <strong>sin necesidad de cuenta</strong>:</p>'
+      // CTA button
+      +'<table cellpadding="0" cellspacing="0" style="margin:0 0 28px"><tr><td style="background:#1d4ed8;border-radius:8px;padding:0">'
+      +'<a href="'+reviewUrl+'" style="display:inline-block;padding:14px 32px;color:#fff;font-size:14px;font-weight:700;text-decoration:none;letter-spacing:.02em">🔎 REVIEW FINH — Dejar comentarios</a>'
+      +'</td></tr></table>'
+      +'<p style="font-size:13px;color:#9ca3af;margin:0 0 4px">O copia este link en tu navegador:</p>'
+      +'<p style="font-size:11px;color:#6b7280;word-break:break-all;margin:0">'+reviewUrl+'</p>'
+      +'</td></tr>'
+      // Firma
+      +'<tr><td style="padding:0 32px 28px">'
+      +'<p style="font-size:14px;color:#374151;margin:0">Saludos,<br><strong>Eduardo Torres</strong><br>Finh Soluciones Económicas<br><span style="color:#6b7280">(55) 6798 1672 | finh.mx</span></p>'
+      +'</td></tr>'
+      // Footer
+      +'<tr><td style="background:#1e2235;padding:16px 32px;text-align:center">'
+      +'<p style="font-size:11px;color:rgba(255,255,255,.6);margin:0">Finh Soluciones Económicas, S.A.P.I. de C.V., SOFOM, E.N.R.<br>Av. México 516, 5to piso, San Jerónimo Aculco, La Magdalena Contreras, Ciudad de México 10400 | (55) 6798 1672</p>'
+      +'</td></tr>'
+      +'</table></td></tr></table>'
+      +'</body></html>';
+
+    var subject='Machote de Revision - Finh (semana '+fechaSemana+')';
+    var eml='MIME-Version: 1.0\r\n'
+      +'Content-Type: text/html; charset=UTF-8\r\n'
+      +'Subject: '+subject+'\r\n'
+      +'From: Eduardo Torres <et@finh.mx>\r\n'
+      +'To: \r\n'
+      +'\r\n'
+      +emailHtml;
 
     setTimeout(function(){
-      window.location.href='mailto:?subject='+encodeURIComponent(subject)+'&body='+encodeURIComponent(body);
-    },300);
+      var emlBlob=new Blob([eml],{type:'message/rfc822;charset=utf-8'});
+      var emlUrl=URL.createObjectURL(emlBlob);
+      var ae=document.createElement('a'); ae.href=emlUrl; ae.download='Finh-Revision-'+new Date().toISOString().slice(0,10)+'.eml';
+      document.body.appendChild(ae); ae.click();
+      setTimeout(function(){ document.body.removeChild(ae); URL.revokeObjectURL(emlUrl); },1000);
+    },600);
 
-    activosShowToast('📥 Descargando machote... El correo se abre en un momento');
+    activosShowToast('📥 Descargando machote y correo (.eml)... Ábrelo en Outlook para enviar');
   }
 
   async function calClearRevision(postId){
