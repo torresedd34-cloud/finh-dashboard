@@ -5930,7 +5930,7 @@
   }
   function calAddPost(fecha){ calShowPostModal(null,fecha||null); }
   function calAddEmail(){ activosShowToast('Editor de email — próximamente con plantillas'); }
-  function calViewPost(id){ var p=CAL_DATA.find(function(x){ return x.id===id; }); if(p) calShowPostModal(p,null); }
+  function calViewPost(id){ var p=CAL_DATA.find(function(x){ return x.id===id||x.post_id===id; }); if(p) calShowPostModal(p,null); }
   function calViewEmail(id){ var e=CAL_EMAIL_DATA.find(function(x){ return x.id===id; }); if(e) activosShowToast(e.asunto); }
   function calAceptarRec(id){
     var r=CAL_RECS.find(function(x){ return x.id===id; }); if(!r) return;
