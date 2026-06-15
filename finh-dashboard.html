@@ -5821,7 +5821,7 @@
           +'<div class="cal-list-body">'
           +'<div class="cal-list-titulo">'+esc(e.asunto)+'</div>'
           +'<div class="cal-list-meta" style="gap:8px">'
-          +'<span style="background:'+(tipoColor[e.tipo]||'#6b7280')+'22;color:'+(tipoColor[e.tipo]||'#6b7280')+';border-radius:5px;padding:2px 8px;font-size:11px;font-weight:700">'+e.tipo+'</span>'
+          +(e.tipo?'<span style="background:'+(tipoColor[e.tipo]||'#6b7280')+'22;color:'+(tipoColor[e.tipo]||'#6b7280')+';border-radius:5px;padding:2px 8px;font-size:11px;font-weight:700">'+e.tipo+'</span>':'')
           +'<span class="cal-status-badge '+e.estado+'">'+e.estado+'</span>'
           +'<span style="font-size:11px;color:var(--text-muted)">'+e.segmento+'</span>'
           +(e.estado==='enviado'?'<span style="font-size:11px;color:var(--text-muted)">Apertura: <b>'+e.apertura+'%</b> · Clics: <b>'+e.clicks+'%</b></span>':'')
@@ -5931,7 +5931,76 @@
   function calAddPost(fecha){ calShowPostModal(null,fecha||null); }
   function calAddEmail(){ activosShowToast('Editor de email — próximamente con plantillas'); }
   function calViewPost(id){ var p=CAL_DATA.find(function(x){ return x.id===id||x.post_id===id; }); if(p) calShowPostModal(p,null); }
-  function calViewEmail(id){ var e=CAL_EMAIL_DATA.find(function(x){ return x.id===id; }); if(e) activosShowToast(e.asunto); }
+  function calViewEmail(id){
+    var e=CAL_EMAIL_DATA.find(function(x){ return x.id===id||x.email_id===id; });
+    if(!e) return;
+    var ex=document.getElementById('cal-email-modal'); if(ex) ex.remove();
+    var INP='width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;background:var(--bg);color:var(--text)';
+    var LBL='display:block;font-size:11px;font-weight:700;color:var(--text2);margin-bottom:4px;text-transform:uppercase;letter-spacing:.04em';
+    var eOpts=['borrador','programado','enviado'].map(function(s){ return '<option value="'+s+'"'+(e.estado===s?' selected':'')+'>'+s+'</option>'; }).join('');
+    var segOpts=['leads_calificados','clientes_activos','todos'].map(function(s){ return '<option value="'+s+'"'+(e.segmento===s?' selected':'')+'>'+s+'</option>'; }).join('');
+    var div=document.createElement('div'); div.id='cal-email-modal';
+    div.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:300;display:flex;align-items:flex-start;justify-content:center;padding:20px;overflow-y:auto';
+    div.innerHTML='<div style="background:var(--card);border-radius:16px;width:100%;max-width:680px;box-shadow:0 20px 60px rgba(0,0,0,.3);margin:auto">'
+      +'<div style="background:linear-gradient(135deg,#1d4ed8,#7c3aed);padding:20px 24px;border-radius:16px 16px 0 0;display:flex;justify-content:space-between;align-items:center">'
+      +'<div><div style="font-size:11px;font-weight:700;color:rgba(255,255,255,.7);text-transform:uppercase;letter-spacing:.06em">✉️ Email Marketing</div>'
+      +'<div style="font-size:17px;font-weight:800;color:#fff;margin-top:2px">'+esc(e.asunto||'Sin asunto')+'</div></div>'
+      +'<button onclick="document.getElementById(\'cal-email-modal\').remove()" style="background:rgba(255,255,255,.15);border:none;color:#fff;font-size:18px;width:32px;height:32px;border-radius:50%;cursor:pointer">✕</button>'
+      +'</div>'
+      +'<div style="padding:22px 24px;display:flex;flex-direction:column;gap:16px">'
+      // Fila: fecha / hora / estado / segmento
+      +'<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px">'
+      +'<div><label style="'+LBL+'">📅 Fecha</label><input type="date" id="cem-fecha" value="'+esc(e.fecha||'')+'" style="'+INP+'"></div>'
+      +'<div><label style="'+LBL+'">🕐 Hora</label><input type="time" id="cem-hora" value="'+esc(e.hora||'')+'" style="'+INP+'"></div>'
+      +'<div><label style="'+LBL+'">Estado</label><select id="cem-estado" style="'+INP+'">'+eOpts+'</select></div>'
+      +'<div><label style="'+LBL+'">Segmento</label><select id="cem-segmento" style="'+INP+'">'+segOpts+'</select></div>'
+      +'</div>'
+      // Asunto
+      +'<div><label style="'+LBL+'">✉️ Asunto (máx 60 chars)</label>'
+      +'<input type="text" id="cem-asunto" value="'+esc(e.asunto||'')+'" maxlength="80" style="'+INP+'"></div>'
+      // Preview text
+      +'<div><label style="'+LBL+'">👁 Preview text (máx 90 chars)</label>'
+      +'<input type="text" id="cem-preview" value="'+esc(e.preview_text||'')+'" maxlength="120" style="'+INP+'"></div>'
+      // Cuerpo
+      +'<div><label style="'+LBL+'">📝 Cuerpo del email</label>'
+      +'<textarea id="cem-cuerpo" rows="10" style="'+INP+';resize:vertical;line-height:1.6">'+esc(e.cuerpo||'')+'</textarea></div>'
+      // CTA
+      +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">'
+      +'<div><label style="'+LBL+'">🔗 Texto del CTA</label><input type="text" id="cem-cta-texto" value="'+esc(e.cta_texto||'')+'" style="'+INP+'"></div>'
+      +'<div><label style="'+LBL+'">🌐 URL del CTA</label><input type="url" id="cem-cta-url" value="'+esc(e.cta_url||'https://finh.mx')+'" style="'+INP+'"></div>'
+      +'</div>'
+      +'</div>'
+      +'<div style="padding:14px 24px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end;align-items:center">'
+      +'<button onclick="document.getElementById(\'cal-email-modal\').remove()" style="padding:9px 18px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;border:1px solid var(--border);background:var(--bg);color:var(--text)">Cancelar</button>'
+      +'<button onclick="calSaveEmail(\''+esc(e.email_id||e.id)+'\')" style="padding:9px 22px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;border:none;background:#1d4ed8;color:#fff">💾 Guardar</button>'
+      +'</div></div>';
+    document.body.appendChild(div);
+    div.addEventListener('click',function(ev){ if(ev.target===div) div.remove(); });
+  }
+
+  function calSaveEmail(emailId){
+    var idx=CAL_EMAIL_DATA.findIndex(function(x){ return x.email_id===emailId||x.id===emailId; });
+    if(idx<0) return;
+    var o=CAL_EMAIL_DATA[idx];
+    o.fecha=document.getElementById('cem-fecha').value;
+    o.hora=document.getElementById('cem-hora').value;
+    o.estado=document.getElementById('cem-estado').value;
+    o.segmento=document.getElementById('cem-segmento').value;
+    o.asunto=document.getElementById('cem-asunto').value;
+    o.preview_text=document.getElementById('cem-preview').value;
+    o.cuerpo=document.getElementById('cem-cuerpo').value;
+    o.cta_texto=document.getElementById('cem-cta-texto').value;
+    o.cta_url=document.getElementById('cem-cta-url').value;
+    CAL_EMAIL_DATA[idx]=o;
+    if(o.email_id) sbPatch('cal_emails','email_id=eq.'+encodeURIComponent(o.email_id),{
+      fecha:o.fecha,hora:o.hora,estado:o.estado,segmento:o.segmento,
+      asunto:o.asunto,preview_text:o.preview_text,cuerpo:o.cuerpo,
+      cta_texto:o.cta_texto,cta_url:o.cta_url
+    }).catch(function(){});
+    document.getElementById('cal-email-modal').remove();
+    activosShowToast('✅ Email guardado');
+    renderCalendario();
+  }
   function calAceptarRec(id){
     var r=CAL_RECS.find(function(x){ return x.id===id; }); if(!r) return;
     CAL_DATA.push({id:'p'+calPostNextId++,fecha:'2026-06-21',plat:r.plataformas[0],titulo:r.titulo,estado:'borrador',texto:r.descripcion});
@@ -6754,6 +6823,10 @@
   window.calExportPDF          = calExportPDF;
   window.calEnviarRevision     = calEnviarRevision;
   window.calPreviewFile        = calPreviewFile;
+  window.calViewEmail          = calViewEmail;
+  window.calSaveEmail          = calSaveEmail;
+  window.calPlatDefaults       = calPlatDefaults;
+  window.calInitPlatDefaults   = calInitPlatDefaults;
   // Activos
   window.activosSetCat      = activosSetCat;
   window.activosAddNew      = activosAddNew;
