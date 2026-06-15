@@ -5662,7 +5662,7 @@
       var n8nPill = isMonday ? '<div style="background:var(--accent);color:#fff;border-radius:4px;font-size:9px;font-weight:700;padding:1px 5px;margin-bottom:2px;display:inline-block">n8n</div>' : '';
       html += '<div class="cal-day'+(isToday?' today':'')+'"'+(isMonday?' style="border-top:2px solid var(--accent)"':'')+'>'+n8nPill
         + '<div class="cal-day-num">'+d+'</div>'
-        + posts.map(function(p){ var pid=p.post_id||p.id; var sel=calState.selectedPosts.indexOf(pid)>=0; return '<div class="cal-post-pill '+p.plat+' '+p.estado+(sel?' sel-active':'')+'" onclick="calClickPost(\''+pid+'\')" title="'+esc(p.titulo)+'">'+(sel?'✓ ':platIcon(p.plat)+' ')+p.titulo+'</div>'; }).join('')
+        + posts.map(function(p){ var pid=p.post_id||p.id; var sel=calState.selectedPosts.indexOf(pid)>=0; var revIco=p.revision_estado==='aprobado'?' ✅':p.revision_estado==='rechazado'?' ❌':p.revision_estado==='cambios_solicitados'?' 🔄':''; return '<div class="cal-post-pill '+p.plat+' '+p.estado+(sel?' sel-active':'')+'" onclick="calClickPost(\''+pid+'\')" title="'+esc(p.titulo)+'">'+(sel?'✓ ':platIcon(p.plat)+' ')+p.titulo+revIco+'</div>'; }).join('')
         + '<div class="cal-add-btn" onclick="calAddPost(\''+dateStr+'\')">+ agregar</div>'
         + '</div>';
     }
@@ -6212,6 +6212,8 @@
       +'</div>'
       +'</div>'
       +'</div>'
+      // Notas de revisión (si existen)
+      +(p.revision_estado ? '<div style="margin:0 24px 16px;padding:14px 16px;border-radius:10px;background:'+(p.revision_estado==='aprobado'?'#dcfce7':p.revision_estado==='rechazado'?'#fee2e2':'#fef3c7')+';border:1.5px solid '+(p.revision_estado==='aprobado'?'#86efac':p.revision_estado==='rechazado'?'#fca5a5':'#fde68a')+'"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><span style="font-size:13px;font-weight:800;color:'+(p.revision_estado==='aprobado'?'#16a34a':p.revision_estado==='rechazado'?'#dc2626':'#d97706')+'">'+(p.revision_estado==='aprobado'?'✅ Aprobado':p.revision_estado==='rechazado'?'❌ Rechazado':'🔄 Requiere cambios')+'</span><button onclick="calClearRevision(\''+p.id+'\')" style="font-size:11px;font-weight:600;padding:4px 10px;border-radius:6px;border:1px solid rgba(0,0,0,.12);background:rgba(255,255,255,.6);cursor:pointer;color:#374151">🗑 Limpiar</button></div>'+(p.notas_revision?'<div style="font-size:13px;color:#374151;white-space:pre-wrap;word-break:break-word">'+esc(p.notas_revision)+'</div>':'')+(p.campo_revision&&p.campo_revision!=='ninguno'?'<div style="margin-top:6px;font-size:11px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.04em">Campo a revisar: '+esc(p.campo_revision)+'</div>':'')+'</div>' : '')
       // Footer
       +'<div style="padding:14px 24px;border-top:1px solid var(--border);display:flex;gap:8px;align-items:center">'
       +(!isNew?'<button onclick="calDeletePost(\''+p.id+'\')" style="padding:9px 16px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;border:1px solid #fecaca;background:#fef2f2;color:#ef4444">🗑 Eliminar</button>':'')
@@ -6569,11 +6571,19 @@
     });
     if(selEmails.length) platLines.push('  • Email Marketing ('+selEmails.length+'): '+selEmails.map(function(e){ return e.asunto||'Sin asunto'; }).join(', '));
 
+    var reviewPostIds=posts.map(function(p){ return p.post_id||p.id; }).join(',');
+    var reviewEmailIds=selEmails.map(function(e){ return e.email_id||e.id; }).join(',');
+    var reviewUrl='https://torresedd34-cloud.github.io/finh-dashboard/review.html?'
+      +(reviewPostIds?'ids='+encodeURIComponent(reviewPostIds):'')
+      +(reviewPostIds&&reviewEmailIds?'&':'')
+      +(reviewEmailIds?'eids='+encodeURIComponent(reviewEmailIds):'')
+      +(fechaSemana?'&semana='+encodeURIComponent(fechaSemana):'');
     var subject='Machote de Revisión — Publicaciones Finh (semana '+fechaSemana+')';
     var body='Hola,\n\n'
       +'Te comparto el machote de revisión de contenido para la semana del '+fechaSemana+'.\n\n'
       +'Elementos incluidos ('+total+' en total):\n'+platLines.join('\n')+'\n\n'
-      +'El archivo adjunto contiene el machote completo.\n\n'
+      +'El archivo adjunto contiene el machote completo — ábrelo en el navegador e imprime como PDF si lo necesitas.\n\n'
+      +'Puedes dejar tus comentarios y aprobaciones directamente aquí (sin necesidad de cuenta):\n'+reviewUrl+'\n\n'
       +'Por favor comparte tus comentarios a la brevedad.\n\n'
       +'Gracias,\nEduardo Torres\nFinh Soluciones Económicas\n(55) 6798 1672 | finh.mx';
 
@@ -6582,6 +6592,16 @@
     },300);
 
     activosShowToast('📥 Descargando machote... El correo se abre en un momento');
+  }
+
+  async function calClearRevision(postId){
+    if(!confirm('¿Eliminar las notas de revisión de esta publicación?')) return;
+    await sbPatch('cal_posts','post_id=eq.'+encodeURIComponent(postId),{revision_estado:'',notas_revision:'',campo_revision:''});
+    var p=CAL_DATA.find(function(x){ return x.post_id===postId||x.id===postId; });
+    if(p){ p.revision_estado=''; p.notas_revision=''; p.campo_revision=''; }
+    calClosePostModal();
+    calShowPostModal(postId);
+    activosShowToast('Notas de revisión eliminadas');
   }
 
   function calImprimirMachote(){
@@ -7163,6 +7183,7 @@
   window.calEmailClearImage    = calEmailClearImage;
   window.calToggleEmail        = calToggleEmail;
   window.calEnviarPorCorreo    = calEnviarPorCorreo;
+  window.calClearRevision      = calClearRevision;
   window.calEmailExportPDF     = calEmailExportPDF;
   window.calPlatDefaults       = calPlatDefaults;
   window.calInitPlatDefaults   = calInitPlatDefaults;
