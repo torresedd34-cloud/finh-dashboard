@@ -6583,6 +6583,16 @@
       +'<div class="footer">Finh Soluciones Económicas | Marketing HubMaster DERECHOS RESERVADOS – FINH '+yr+'</div>'
       +'</body></html>';
 
+    // ── 0. Marcar posts seleccionados como "revision" en Supabase ────────────
+    posts.forEach(function(p){
+      var pid=p.post_id||p.id;
+      if(p.estado&&p.estado!=='revision'&&p.estado!=='aprobado'&&p.estado!=='publicado'){
+        sbPatch('cal_posts','post_id=eq.'+encodeURIComponent(pid),{estado:'revision'});
+        p.estado='revision';
+      }
+    });
+    renderCalendario();
+
     // ── 1. Descargar el archivo automáticamente ──────────────────────────────
     var blob=new Blob([html],{type:'text/html;charset=utf-8'});
     var dlUrl=URL.createObjectURL(blob);
