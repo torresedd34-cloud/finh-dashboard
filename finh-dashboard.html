@@ -995,6 +995,8 @@
   .cal-post-pill.programado { opacity:.7; }
   .cal-post-pill.publicado { opacity:1; }
   .cal-post-pill.borrador { border:1px dashed currentColor; background:transparent; }
+  .cal-post-pill.sel-active { outline:2px solid var(--accent); background:var(--accent-light) !important; color:var(--accent) !important; font-weight:700; }
+  .cal-post-pill.en\ revisión { background:#fef3c7; color:#d97706; border:1px solid #fcd34d; }
   .cal-add-btn { font-size:10px; color:var(--accent); cursor:pointer; margin-top:2px; }
   .camp-intel-card { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:16px 18px; }
   /* lista view */
@@ -5495,7 +5497,7 @@
     var mon = new Date(n); mon.setDate(n.getDate()-(dow===0?6:dow-1));
     var wStr = mon.getFullYear()+'-'+p(mon.getMonth()+1)+'-'+p(mon.getDate());
     var dStr = n.getFullYear()+'-'+p(n.getMonth()+1)+'-'+p(n.getDate());
-    return { tab:'social', view:'mes', year:n.getFullYear(), month:n.getMonth(), day:dStr, weekStart:wStr, emailView:'mes' };
+    return { tab:'social', view:'mes', year:n.getFullYear(), month:n.getMonth(), day:dStr, weekStart:wStr, emailView:'mes', multiSelect:false, selectedPosts:[] };
   })();
 
   function renderCalendario() {
@@ -5573,8 +5575,21 @@
       +'<button class="cal-view-tab'+(calState.view==='lista'?'  active':'')+'" onclick="calSetView(\'lista\')">Por plataforma</button>'
       +'</div>'
       +'<button class="tareas-add-btn" onclick="calAddPost()">+ Publicación</button>'
+      +'<button onclick="calToggleMultiSelect()" style="padding:7px 14px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;border:1.5px solid '+(calState.multiSelect?'var(--accent)':'var(--border)')+';background:'+(calState.multiSelect?'var(--accent-light)':'var(--bg)')+';color:'+(calState.multiSelect?'var(--accent)':'var(--text2)')+'">☑ Selección</button>'
       +'<button class="cal-nav-btn" onclick="calNext()">&#8250;</button>'
       +'</div>';
+
+    // Barra flotante de revisión
+    var reviewBar = calState.multiSelect && calState.selectedPosts.length > 0
+      ? '<div id="cal-review-bar" style="position:sticky;top:0;z-index:50;background:#1e2235;color:#fff;border-radius:10px;padding:10px 18px;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;gap:12px;box-shadow:0 4px 16px rgba(0,0,0,.25)">'
+        +'<div style="font-size:13px;font-weight:700">'+calState.selectedPosts.length+' publicación'+(calState.selectedPosts.length>1?'es':'')+' seleccionada'+(calState.selectedPosts.length>1?'s':'')+' — lista para revisión</div>'
+        +'<div style="display:flex;gap:8px">'
+        +'<button onclick="calState.selectedPosts=[];renderCalendario()" style="padding:6px 14px;border-radius:7px;font-size:12px;font-weight:600;cursor:pointer;border:1px solid rgba(255,255,255,.3);background:transparent;color:#fff">Limpiar</button>'
+        +'<button onclick="calShowReviewModal()" style="padding:6px 18px;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer;border:none;background:var(--accent);color:#fff">📋 Ver machote de revisión</button>'
+        +'</div></div>'
+      : '';
+
+    navHtml = reviewBar + navHtml;
 
     var bodyHtml;
     if (calState.view === 'mes') {
@@ -5595,8 +5610,10 @@
         +PLATS.map(function(pl){
           var posts = mesData.filter(function(p){ return p.plat===pl.id; }).sort(function(a,b){ return a.fecha.localeCompare(b.fecha); });
           var items = posts.length ? posts.map(function(p){
+            var pid=p.post_id||p.id; var sel=calState.selectedPosts.indexOf(pid)>=0;
             var d=p.fecha.split('-');
-            return '<div style="display:flex;gap:10px;align-items:flex-start;padding:9px 0;border-bottom:1px solid var(--border)">'
+            return '<div onclick="calClickPost(\''+pid+'\')" style="display:flex;gap:10px;align-items:flex-start;padding:9px 0;border-bottom:1px solid var(--border);cursor:pointer;background:'+(sel?'var(--accent-light)':'transparent')+';border-radius:6px;padding-left:4px">'
+              +(calState.multiSelect?'<div style="width:16px;height:16px;border-radius:4px;border:2px solid '+(sel?'var(--accent)':'var(--border)')+';background:'+(sel?'var(--accent)':'transparent')+';display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:12px">'+(sel?'<span style="color:#fff;font-size:10px">✓</span>':'')+'</div>':'')
               +'<div style="min-width:36px;text-align:center;background:var(--bg);border-radius:7px;padding:4px 6px">'
               +'<div style="font-size:15px;font-weight:800;color:var(--text);line-height:1">'+parseInt(d[2])+'</div>'
               +'<div style="font-size:9px;color:var(--text-muted);font-weight:600">'+MONS[parseInt(d[1])-1]+'</div>'
@@ -5605,8 +5622,8 @@
               +'<div style="font-size:12px;font-weight:600;color:var(--text);overflow:hidden;white-space:nowrap;text-overflow:ellipsis" title="'+esc(p.titulo)+'">'+esc(p.titulo)+'</div>'
               +'<div style="display:flex;gap:6px;margin-top:4px;align-items:center;flex-wrap:wrap">'
               +'<span class="cal-status-badge '+p.estado+'">'+p.estado+'</span>'
-              +(p.hora?'<span style="font-size:10px;color:var(--text-muted);font-weight:600">🕐 '+p.hora+'</span>':'<span style="font-size:10px;color:var(--text-muted);font-style:italic">sin hora</span>')
-              +'<button style="font-size:10px;color:var(--accent);background:none;border:none;cursor:pointer;padding:0" onclick="calViewPost(\''+p.id+'\')">editar</button>'
+              +(p.formato?'<span style="font-size:9px;color:var(--text2);background:var(--bg3);border-radius:4px;padding:1px 5px;font-weight:600">'+p.formato+'</span>':'')
+              +(p.hora?'<span style="font-size:10px;color:var(--text-muted);font-weight:600">🕐 '+p.hora+'</span>':'')
               +'</div></div></div>';
           }).join('')
           : '<div style="text-align:center;padding:24px 0;color:var(--text-muted);font-size:12px">Sin publicaciones este mes</div>';
@@ -5644,7 +5661,7 @@
       var n8nPill = isMonday ? '<div style="background:var(--accent);color:#fff;border-radius:4px;font-size:9px;font-weight:700;padding:1px 5px;margin-bottom:2px;display:inline-block">n8n</div>' : '';
       html += '<div class="cal-day'+(isToday?' today':'')+'"'+(isMonday?' style="border-top:2px solid var(--accent)"':'')+'>'+n8nPill
         + '<div class="cal-day-num">'+d+'</div>'
-        + posts.map(function(p){ return '<div class="cal-post-pill '+p.plat+' '+p.estado+'" onclick="calViewPost(\''+p.id+'\')" title="'+esc(p.titulo)+'">'+platIcon(p.plat)+' '+p.titulo+'</div>'; }).join('')
+        + posts.map(function(p){ var pid=p.post_id||p.id; var sel=calState.selectedPosts.indexOf(pid)>=0; return '<div class="cal-post-pill '+p.plat+' '+p.estado+(sel?' sel-active':'')+'" onclick="calClickPost(\''+pid+'\')" title="'+esc(p.titulo)+'">'+(sel?'✓ ':platIcon(p.plat)+' ')+p.titulo+'</div>'; }).join('')
         + '<div class="cal-add-btn" onclick="calAddPost(\''+dateStr+'\')">+ agregar</div>'
         + '</div>';
     }
@@ -5673,7 +5690,7 @@
         +'<span class="cal-status-badge '+p.estado+'">'+p.estado+'</span>'
         +(p.hora?'<span style="font-size:11px;color:var(--text-muted);font-weight:600">🕐 '+p.hora+'</span>':'<span style="font-size:11px;color:var(--text-muted);font-style:italic">sin hora</span>')
         +'</div></div>'
-        +'<div style="display:flex;gap:6px;align-items:center"><button class="tarea-btn" onclick="calViewPost(\''+p.id+'\')">Editar</button></div>'
+        +'<div style="display:flex;gap:6px;align-items:center">'+(calState.multiSelect?'<button class="tarea-btn" onclick="calClickPost(\''+(p.post_id||p.id)+'\')" style="background:'+(calState.selectedPosts.indexOf(p.post_id||p.id)>=0?'var(--accent)':'')+'">☑</button>':'<button class="tarea-btn" onclick="calClickPost(\''+(p.post_id||p.id)+'\')">Editar</button>')+'</div>'
         +'</div>';
     }).join('') + '</div>';
   }
@@ -5701,7 +5718,8 @@
         +'</div>'
         +'<div style="padding:6px 8px;display:flex;flex-direction:column;gap:5px">'
         +(posts.length ? posts.map(function(p){
-          return '<div onclick="calViewPost(\''+p.id+'\')" style="cursor:pointer;background:var(--bg);border-radius:6px;padding:5px 7px;border-left:3px solid '+(p.plat==='linkedin'?'#1d4ed8':p.plat==='twitter'?'#1da1f2':'#6d28d9')+'">'
+          var pid2=p.post_id||p.id; var sel2=calState.selectedPosts.indexOf(pid2)>=0;
+          return '<div onclick="calClickPost(\''+pid2+'\')" style="cursor:pointer;background:'+(sel2?'var(--accent-light)':'var(--bg)')+';border-radius:6px;padding:5px 7px;border-left:3px solid '+(p.plat==='linkedin'?'#1d4ed8':p.plat==='twitter'?'#1da1f2':'#6d28d9')+';outline:'+(sel2?'2px solid var(--accent)':'none')+'">'
             +'<div style="font-size:10px;font-weight:700;color:var(--text);overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical">'+esc(p.titulo)+'</div>'
             +'<div style="display:flex;gap:4px;margin-top:3px;align-items:center">'
             +'<span style="font-size:10px">'+platIcon(p.plat)+'</span>'
@@ -5739,7 +5757,8 @@
         +'<div style="padding:10px 12px;font-size:12px;color:var(--text-muted);font-weight:600;border-right:1px solid var(--border)">'+hr+'</div>'
         +'<div style="padding:6px 12px;display:flex;flex-direction:column;gap:6px;min-height:40px">'
         +(hp.length ? hp.map(function(p){
-          return '<div onclick="calViewPost(\''+p.id+'\')" style="cursor:pointer;display:flex;align-items:center;gap:8px;background:var(--bg);border-radius:7px;padding:6px 10px;border-left:3px solid '+(p.plat==='linkedin'?'#1d4ed8':p.plat==='twitter'?'#1da1f2':'#6d28d9')+'">'
+          var pid3=p.post_id||p.id; var sel3=calState.selectedPosts.indexOf(pid3)>=0;
+          return '<div onclick="calClickPost(\''+pid3+'\')" style="cursor:pointer;display:flex;align-items:center;gap:8px;background:'+(sel3?'var(--accent-light)':'var(--bg)')+';border-radius:7px;padding:6px 10px;border-left:3px solid '+(p.plat==='linkedin'?'#1d4ed8':p.plat==='twitter'?'#1da1f2':'#6d28d9')+';outline:'+(sel3?'2px solid var(--accent)':'none')+'">'
             +'<span style="font-size:14px">'+platIcon(p.plat)+'</span>'
             +'<div style="flex:1;min-width:0"><div style="font-size:12px;font-weight:700;color:var(--text)">'+esc(p.titulo)+'</div>'
             +'<div style="display:flex;gap:6px;margin-top:2px"><span class="cal-status-badge '+p.estado+'" style="font-size:10px">'+p.estado+'</span></div></div>'
@@ -5754,7 +5773,8 @@
         +'<div style="padding:10px 12px;font-size:12px;color:var(--text-muted);font-weight:600;border-right:1px solid var(--border)">Sin hora</div>'
         +'<div style="padding:6px 12px;display:flex;flex-direction:column;gap:6px">'
         +sinHora.map(function(p){
-          return '<div onclick="calViewPost(\''+p.id+'\')" style="cursor:pointer;display:flex;align-items:center;gap:8px;background:var(--bg);border-radius:7px;padding:6px 10px;border-left:3px solid '+(p.plat==='linkedin'?'#1d4ed8':p.plat==='twitter'?'#1da1f2':'#6d28d9')+'">'
+          var pid3=p.post_id||p.id; var sel3=calState.selectedPosts.indexOf(pid3)>=0;
+          return '<div onclick="calClickPost(\''+pid3+'\')" style="cursor:pointer;display:flex;align-items:center;gap:8px;background:'+(sel3?'var(--accent-light)':'var(--bg)')+';border-radius:7px;padding:6px 10px;border-left:3px solid '+(p.plat==='linkedin'?'#1d4ed8':p.plat==='twitter'?'#1da1f2':'#6d28d9')+';outline:'+(sel3?'2px solid var(--accent)':'none')+'">'
             +'<span style="font-size:14px">'+platIcon(p.plat)+'</span>'
             +'<div style="flex:1;min-width:0"><div style="font-size:12px;font-weight:700;color:var(--text)">'+esc(p.titulo)+'</div>'
             +'<span class="cal-status-badge '+p.estado+'" style="font-size:10px;margin-top:2px">'+p.estado+'</span></div>'
@@ -5918,43 +5938,307 @@
     activosShowToast('✅ Recomendación agregada como borrador');
     calState.tab='social'; renderCalendario();
   }
+  var FORMATOS_POST = ['imagen','carrusel','video','reel','historia','texto','encuesta','infografía','hilo','tip','frase'];
+  var OBJETIVOS_POST = ['generar leads','educativo','brand awareness','engagement','conversión','anuncio','caso de éxito','tendencia'];
+
   function calShowPostModal(post,fecha){
-    var isNew=!post,p=post||{id:'',fecha:fecha||'2026-06-10',plat:'linkedin',titulo:'',estado:'borrador',texto:''};
+    var isNew=!post;
+    var p=post||{id:'',fecha:fecha||new Date().toISOString().slice(0,10),plat:'linkedin',titulo:'',estado:'borrador',texto:'',formato:'imagen',objetivo:'educativo',hashtags:[],cta:'',descargo_legal:false,idea_visual:'',prompt_imagen:'',imagen_url:''};
     var ex=document.getElementById('cal-post-modal'); if(ex) ex.remove();
+    var INP='width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;background:var(--bg);color:var(--text)';
+    var LBL='display:block;font-size:11px;font-weight:700;color:var(--text2);margin-bottom:4px;text-transform:uppercase;letter-spacing:.04em';
     var pOpts=['linkedin','twitter','facebook'].map(function(pl){ return '<option value="'+pl+'"'+(p.plat===pl?' selected':'')+'>'+platIcon(pl)+' '+pl+'</option>'; }).join('');
-    var eOpts=['borrador','programado','publicado'].map(function(s){ return '<option value="'+s+'"'+(p.estado===s?' selected':'')+'>'+s+'</option>'; }).join('');
+    var eOpts=['borrador','en revisión','programado','publicado'].map(function(s){ return '<option value="'+s+'"'+(p.estado===s?' selected':'')+'>'+s+'</option>'; }).join('');
+    var fOpts=FORMATOS_POST.map(function(f){ return '<option value="'+f+'"'+((p.formato||'')=== f?' selected':'')+'>'+f+'</option>'; }).join('');
+    var oOpts=OBJETIVOS_POST.map(function(o2){ return '<option value="'+o2+'"'+((p.objetivo||'')=== o2?' selected':'')+'>'+o2+'</option>'; }).join('');
+    var hashVal=Array.isArray(p.hashtags)?p.hashtags.join(' '):(p.hashtags||'');
+    var platColor=p.plat==='linkedin'?'#1d4ed8':p.plat==='twitter'?'#1da1f2':'#6d28d9';
+    var platLabel=p.plat==='linkedin'?'LinkedIn':p.plat==='twitter'?'Twitter/X':'Facebook';
+
     var div=document.createElement('div'); div.id='cal-post-modal';
-    div.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:300;display:flex;align-items:center;justify-content:center;padding:16px';
-    div.innerHTML='<div style="background:var(--card);border-radius:14px;width:560px;max-width:100%;max-height:90vh;overflow-y:auto">'
-      +'<div style="padding:20px 24px 0;display:flex;justify-content:space-between;align-items:center"><div style="font-size:16px;font-weight:700">'+(isNew?'Nueva publicación':'Editar publicación')+'</div><button onclick="calClosePostModal()" style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--text-muted)">&#10005;</button></div>'
-      +'<div style="padding:20px 24px;display:flex;flex-direction:column;gap:12px">'
-      +'<div><label style="display:block;font-size:12px;font-weight:600;color:var(--text-muted);margin-bottom:4px">Título</label><input id="cpm-titulo" value="'+esc(p.titulo)+'" style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;background:var(--bg);color:var(--text)"></div>'
-      +'<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px">'
-      +'<div><label style="display:block;font-size:12px;font-weight:600;color:var(--text-muted);margin-bottom:4px">Plataforma</label><select id="cpm-plat" style="width:100%;padding:9px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;background:var(--bg);color:var(--text)">'+pOpts+'</select></div>'
-      +'<div><label style="display:block;font-size:12px;font-weight:600;color:var(--text-muted);margin-bottom:4px">Fecha</label><input type="date" id="cpm-fecha" value="'+p.fecha+'" style="width:100%;padding:9px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;background:var(--bg);color:var(--text)"></div>'
-      +'<div><label style="display:block;font-size:12px;font-weight:600;color:var(--text-muted);margin-bottom:4px">Hora <span style="font-weight:400;color:var(--text-muted)">(por definir)</span></label><input type="time" id="cpm-hora" value="'+(p.hora||'')+'" placeholder="--:--" style="width:100%;padding:9px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;background:var(--bg);color:var(--text)"></div>'
-      +'<div><label style="display:block;font-size:12px;font-weight:600;color:var(--text-muted);margin-bottom:4px">Estado</label><select id="cpm-estado" style="width:100%;padding:9px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;background:var(--bg);color:var(--text)">'+eOpts+'</select></div>'
+    div.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:300;display:flex;align-items:flex-start;justify-content:center;padding:20px;overflow-y:auto';
+    div.innerHTML=''
+      +'<div style="background:var(--card);border-radius:16px;width:760px;max-width:100%;margin:auto;box-shadow:0 20px 60px rgba(0,0,0,.25)">'
+      // Header
+      +'<div style="background:'+platColor+';border-radius:16px 16px 0 0;padding:16px 24px;display:flex;justify-content:space-between;align-items:center">'
+      +'<div>'
+      +'<div style="font-size:11px;font-weight:700;opacity:.75;text-transform:uppercase;letter-spacing:.08em">'+platLabel+'</div>'
+      +'<div style="font-size:16px;font-weight:800;color:#fff">'+(isNew?'Nueva publicación':'Editar publicación')+'</div>'
       +'</div>'
-      +'<div><label style="display:block;font-size:12px;font-weight:600;color:var(--text-muted);margin-bottom:4px">Copy / contenido</label><textarea id="cpm-texto" rows="6" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;background:var(--bg);color:var(--text);resize:vertical;font-family:inherit;line-height:1.6">'+esc(p.texto)+'</textarea></div>'
+      +'<button onclick="calClosePostModal()" style="background:rgba(255,255,255,.2);border:none;cursor:pointer;font-size:18px;color:#fff;width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center">✕</button>'
       +'</div>'
-      +'<div style="padding:14px 24px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end">'
-      +(!isNew?'<button onclick="calDeletePost(\''+p.id+'\')" style="padding:9px 16px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;border:1px solid #fecaca;background:#fef2f2;color:#ef4444;margin-right:auto">🗑 Eliminar</button>':'')
+      // Body
+      +'<div style="padding:22px 24px;display:flex;flex-direction:column;gap:14px">'
+      // Título
+      +'<div><label style="'+LBL+'">Título</label><input id="cpm-titulo" value="'+esc(p.titulo)+'" placeholder="Tema o título descriptivo del post" style="'+INP+'"></div>'
+      // Fila: Plataforma | Fecha | Hora | Estado
+      +'<div style="display:grid;grid-template-columns:1.2fr 1fr 1fr 1fr;gap:10px">'
+      +'<div><label style="'+LBL+'">Plataforma</label><select id="cpm-plat" style="'+INP+'">'+pOpts+'</select></div>'
+      +'<div><label style="'+LBL+'">Fecha</label><input type="date" id="cpm-fecha" value="'+p.fecha+'" style="'+INP+'"></div>'
+      +'<div><label style="'+LBL+'">Hora</label><input type="time" id="cpm-hora" value="'+(p.hora||'')+'" style="'+INP+'"></div>'
+      +'<div><label style="'+LBL+'">Estado</label><select id="cpm-estado" style="'+INP+'">'+eOpts+'</select></div>'
+      +'</div>'
+      // Fila: Objetivo | Formato
+      +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'
+      +'<div><label style="'+LBL+'">🎯 Objetivo de la publicación</label><select id="cpm-objetivo" style="'+INP+'">'+oOpts+'</select></div>'
+      +'<div><label style="'+LBL+'">📐 Formato</label><select id="cpm-formato" style="'+INP+'">'+fOpts+'</select></div>'
+      +'</div>'
+      // Copy / contenido
+      +'<div>'
+      +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">'
+      +'<label style="'+LBL+'">✍️ Copy / contenido</label>'
+      +'<span id="cpm-chars" style="font-size:11px;color:var(--text3)">'+(p.texto||'').length+' caracteres</span>'
+      +'</div>'
+      +'<textarea id="cpm-texto" rows="5" oninput="document.getElementById(\'cpm-chars\').textContent=this.value.length+\' caracteres\'" style="'+INP+';resize:vertical;font-family:inherit;line-height:1.6">'+esc(p.texto)+'</textarea>'
+      +'</div>'
+      // Fila: Hashtags | CTA
+      +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'
+      +'<div><label style="'+LBL+'">🏷️ Hashtags</label><input id="cpm-hashtags" value="'+esc(hashVal)+'" placeholder="#SomosFinh #FinhTePresta..." style="'+INP+'"></div>'
+      +'<div><label style="'+LBL+'">🔗 CTA (llamada a la acción)</label><input id="cpm-cta" value="'+esc(p.cta||'')+'" placeholder="→ finh.mx · (55) 6798 1672 · Escríbenos" style="'+INP+'"></div>'
+      +'</div>'
+      // Descargo legal
+      +'<div style="display:flex;align-items:center;gap:10px;background:var(--bg);border-radius:8px;padding:10px 14px">'
+      +'<input type="checkbox" id="cpm-descargo" '+(p.descargo_legal?'checked':'')+' style="width:16px;height:16px;accent-color:var(--accent);cursor:pointer">'
+      +'<label for="cpm-descargo" style="font-size:12px;font-weight:600;cursor:pointer;color:var(--text)">⚖️ Incluir descargo legal — <span style="font-weight:400;color:var(--text2)">\"Sujeto a estudio y aprobación. Consulta T y C.\"</span></label>'
+      +'</div>'
+      // Propuesta visual
+      +'<div><label style="'+LBL+'">🎨 Propuesta visual</label><textarea id="cpm-visual" rows="2" placeholder="Describe el visual: imagen de fondo, texto sobre la imagen, estilo, colores Finh..." style="'+INP+';resize:vertical;font-family:inherit;line-height:1.6">'+esc(p.idea_visual||p.alt_text||'')+'</textarea></div>'
+      // Prompt para IA
+      +'<div style="background:linear-gradient(135deg,#f0f4ff 0%,#faf0ff 100%);border-radius:10px;padding:14px;border:1px solid #e0e7ff">'
+      +'<label style="'+LBL+';color:#4f46e5">🤖 Prompt para generar imagen / video con IA</label>'
+      +'<textarea id="cpm-prompt" rows="3" placeholder="Ej: Fotografia corporativa de empresario mexicano revisando documentos, estilo limpio profesional, colores azul y rojo Finh, logo en esquina inferior..." style="width:100%;padding:9px 12px;border:1.5px solid #c7d2fe;border-radius:8px;font-size:13px;background:#fff;color:var(--text);resize:vertical;font-family:inherit;line-height:1.6">'+esc(p.prompt_imagen||'')+'</textarea>'
+      +'<div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">'
+      +['foto corporativa','empresario mexicano','infografía minimalista','reel animado','datos y estadísticas','fondo abstracto azul','producto financiero'].map(function(s){ return '<span onclick="document.getElementById(\'cpm-prompt\').value+=(document.getElementById(\'cpm-prompt\').value?\', ':\'\')+\''+s+'\'" style="font-size:10px;padding:3px 9px;background:#e0e7ff;color:#4338ca;border-radius:6px;cursor:pointer;font-weight:600">+'+s+'</span>'; }).join('')
+      +'</div></div>'
+      // Subir imagen/video
+      +'<div style="border:2px dashed var(--border);border-radius:10px;padding:16px;text-align:center">'
+      +'<label style="'+LBL+';text-align:center;display:block">📁 Imagen / Video aprobado</label>'
+      +(p.imagen_url?'<div style="margin-bottom:10px"><img src="'+esc(p.imagen_url)+'" onerror="this.style.display=\'none\'" style="max-height:120px;border-radius:8px;max-width:100%"></div>':'')
+      +'<input type="file" id="cpm-file" accept="image/*,video/*" onchange="calPreviewFile(this)" style="font-size:12px;color:var(--text2)">'
+      +'<input type="text" id="cpm-imagen-url" value="'+esc(p.imagen_url||'')+'" placeholder="O pega aquí la URL de la imagen/video..." style="margin-top:8px;'+INP+';font-size:12px">'
+      +'<div id="cpm-file-preview" style="margin-top:8px"></div>'
+      +'</div>'
+      +'</div>'
+      // Footer
+      +'<div style="padding:14px 24px;border-top:1px solid var(--border);display:flex;gap:8px;align-items:center">'
+      +(!isNew?'<button onclick="calDeletePost(\''+p.id+'\')" style="padding:9px 16px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;border:1px solid #fecaca;background:#fef2f2;color:#ef4444">🗑 Eliminar</button>':'')
+      +'<button onclick="calEnviarRevision(\''+p.id+'\')" style="margin-left:'+(isNew?'auto':'8px')+';padding:9px 16px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;border:1.5px solid var(--accent);background:var(--accent-light);color:var(--accent)">📋 Enviar a revisión</button>'
       +'<button onclick="calClosePostModal()" style="padding:9px 18px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;border:1px solid var(--border);background:var(--bg);color:var(--text)">Cancelar</button>'
-      +'<button onclick="calSavePost(\''+p.id+'\','+isNew+')" style="padding:9px 22px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;border:none;background:var(--accent);color:#fff">Guardar</button>'
+      +'<button onclick="calSavePost(\''+p.id+'\','+isNew+')" style="padding:9px 22px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;border:none;background:var(--accent);color:#fff">Guardar</button>'
       +'</div></div>';
     document.body.appendChild(div);
+    div.addEventListener('click',function(e){ if(e.target===div) calClosePostModal(); });
   }
+
+  function calPreviewFile(input){
+    var file=input.files[0]; if(!file) return;
+    var prev=document.getElementById('cpm-file-preview');
+    var url=URL.createObjectURL(file);
+    if(file.type.startsWith('image/')){ prev.innerHTML='<img src="'+url+'" style="max-height:120px;border-radius:8px;max-width:100%">'; }
+    else if(file.type.startsWith('video/')){ prev.innerHTML='<video src="'+url+'" controls style="max-height:120px;border-radius:8px;max-width:100%"></video>'; }
+    document.getElementById('cpm-imagen-url').value='[archivo: '+file.name+']';
+  }
+
   function calClosePostModal(){ var e=document.getElementById('cal-post-modal'); if(e) e.remove(); }
+
   function calSavePost(id,isNew){
-    var t=document.getElementById('cpm-titulo').value.trim(); if(!t) return;
-    var o={id:isNew?'p'+(calPostNextId++):id,titulo:t,plat:document.getElementById('cpm-plat').value,fecha:document.getElementById('cpm-fecha').value,hora:document.getElementById('cpm-hora').value,estado:document.getElementById('cpm-estado').value,texto:document.getElementById('cpm-texto').value};
-    if(isNew){ CAL_DATA.push(o); } else { var i=CAL_DATA.findIndex(function(x){ return x.id===id; }); if(i>=0) CAL_DATA[i]=o; }
-    calClosePostModal(); renderCalendario(); activosShowToast(isNew?'✅ Publicación creada':'✅ Publicación actualizada');
+    var t=document.getElementById('cpm-titulo').value.trim(); if(!t){ alert('El título es obligatorio'); return; }
+    var hashRaw=document.getElementById('cpm-hashtags').value;
+    var hashArr=hashRaw.split(/[\s,]+/).filter(function(h){ return h.startsWith('#'); });
+    var o={
+      id: isNew?'p'+(calPostNextId++):id,
+      post_id: isNew?'man-'+Date.now():id,
+      titulo: t,
+      plat: document.getElementById('cpm-plat').value,
+      fecha: document.getElementById('cpm-fecha').value,
+      hora: document.getElementById('cpm-hora').value,
+      estado: document.getElementById('cpm-estado').value,
+      texto: document.getElementById('cpm-texto').value,
+      formato: document.getElementById('cpm-formato').value,
+      objetivo: document.getElementById('cpm-objetivo').value,
+      hashtags: hashArr,
+      cta: document.getElementById('cpm-cta').value,
+      descargo_legal: document.getElementById('cpm-descargo').checked,
+      idea_visual: document.getElementById('cpm-visual').value,
+      prompt_imagen: document.getElementById('cpm-prompt').value,
+      imagen_url: document.getElementById('cpm-imagen-url').value,
+      fuente: isNew?'manual':'n8n_ia'
+    };
+    if(isNew){ CAL_DATA.push(o); } else { var i=CAL_DATA.findIndex(function(x){ return x.id===id||x.post_id===id; }); if(i>=0) CAL_DATA[i]=Object.assign(CAL_DATA[i],o); }
+    // Guardar en Supabase
+    var sbData=Object.assign({},o); delete sbData.id;
+    sbUpsert('cal_posts', sbData, 'post_id').then(function(){ activosShowToast(isNew?'✅ Publicación creada':'✅ Publicación guardada'); }).catch(function(){ activosShowToast('✅ Guardado localmente (Supabase pendiente)'); });
+    calClosePostModal(); renderCalendario();
   }
+
+  function calEnviarRevision(id){
+    var idx=CAL_DATA.findIndex(function(x){ return x.id===id||x.post_id===id; });
+    if(idx<0){ calClosePostModal(); return; }
+    CAL_DATA[idx].estado='en revisión';
+    sbPatch('cal_posts',{post_id:id},{estado:'en revisión'}).catch(function(){});
+    calClosePostModal(); renderCalendario();
+    calState.selectedPosts=[id]; calShowReviewModal();
+  }
+
   function calDeletePost(id){
     if(!confirm('¿Eliminar esta publicación?')) return;
-    CAL_DATA.splice(CAL_DATA.findIndex(function(x){ return x.id===id; }),1);
+    CAL_DATA.splice(CAL_DATA.findIndex(function(x){ return x.id===id||x.post_id===id; }),1);
+    sbDelete('cal_posts',{post_id:id}).catch(function(){});
     calClosePostModal(); renderCalendario();
+  }
+
+  function calToggleMultiSelect(){
+    calState.multiSelect=!calState.multiSelect;
+    if(!calState.multiSelect) calState.selectedPosts=[];
+    renderCalendario();
+  }
+
+  function calTogglePostSelect(id){
+    var idx=calState.selectedPosts.indexOf(id);
+    if(idx>=0){ calState.selectedPosts.splice(idx,1); } else { calState.selectedPosts.push(id); }
+    renderCalendario();
+  }
+
+  function calClickPost(id){
+    if(calState.multiSelect){ calTogglePostSelect(id); }
+    else { calViewPost(id); }
+  }
+
+  function calShowReviewModal(){
+    var ids=calState.selectedPosts;
+    var posts=CAL_DATA.filter(function(p){ return ids.indexOf(p.id)>=0||ids.indexOf(p.post_id)>=0; });
+    if(!posts.length){ activosShowToast('Selecciona al menos una publicación'); return; }
+    var ex=document.getElementById('cal-review-modal'); if(ex) ex.remove();
+
+    var PLATS=[
+      {id:'linkedin',label:'LinkedIn 💼',color:'#1d4ed8',bg:'#dbeafe'},
+      {id:'twitter', label:'Twitter/X 🐦',color:'#0284c7',bg:'#e0f2fe'},
+      {id:'facebook',label:'Facebook 📘',color:'#6d28d9',bg:'#ede9fe'}
+    ];
+    var MONS=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+
+    function postCard(p){
+      var d=p.fecha?p.fecha.split('-'):['','',''];
+      var hashes=Array.isArray(p.hashtags)?p.hashtags.join(' '):(p.hashtags||'');
+      return '<div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:16px;margin-bottom:12px;page-break-inside:avoid">'
+        +'<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">'
+        +'<div>'
+        +'<div style="font-size:13px;font-weight:800;color:var(--text)">'+esc(p.titulo)+'</div>'
+        +'<div style="font-size:11px;color:var(--text2);margin-top:2px">'+parseInt(d[2]||0)+' '+MONS[parseInt(d[1]||1)-1]+' '+d[0]+(p.hora?' · '+p.hora:'')+(p.formato?' · '+p.formato:'')+(p.objetivo?' · '+p.objetivo:'')+'</div>'
+        +'</div>'
+        +'<span style="background:'+(p.estado==='publicado'?'#dcfce7':p.estado==='programado'?'#dbeafe':p.estado==='en revisión'?'#fef3c7':'#f3f4f6')+';color:'+(p.estado==='publicado'?'#16a34a':p.estado==='programado'?'#1d4ed8':p.estado==='en revisión'?'#d97706':'#6b7280')+';border-radius:6px;padding:3px 10px;font-size:10px;font-weight:700;white-space:nowrap">'+p.estado+'</span>'
+        +'</div>'
+        +(p.texto?'<div style="font-size:12px;line-height:1.7;color:var(--text);background:#f9fafb;border-radius:8px;padding:10px 12px;margin-bottom:8px;white-space:pre-wrap">'+esc(p.texto)+'</div>':'')
+        +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:11px">'
+        +(hashes?'<div><span style="font-weight:700;color:#6b7280">Hashtags:</span> <span style="color:#4f46e5">'+esc(hashes)+'</span></div>':'')
+        +(p.cta?'<div><span style="font-weight:700;color:#6b7280">CTA:</span> '+esc(p.cta)+'</div>':'')
+        +(p.idea_visual?'<div style="grid-column:1/-1"><span style="font-weight:700;color:#6b7280">Visual:</span> '+esc(p.idea_visual)+'</div>':'')
+        +(p.prompt_imagen?'<div style="grid-column:1/-1"><span style="font-weight:700;color:#6b7280">Prompt IA:</span> <span style="color:#7c3aed">'+esc(p.prompt_imagen)+'</span></div>':'')
+        +(p.descargo_legal?'<div style="grid-column:1/-1;color:#d97706;font-weight:600">⚖️ Incluye descargo legal</div>':'')
+        +(p.imagen_url&&!p.imagen_url.startsWith('[')&&p.imagen_url.startsWith('http')?'<div style="grid-column:1/-1"><img src="'+esc(p.imagen_url)+'" style="max-height:80px;border-radius:6px" onerror="this.style.display=\'none\'"></div>':'')
+        +'</div>'
+        +'</div>';
+    }
+
+    var byPlat=PLATS.map(function(pl){
+      var pp=posts.filter(function(p){ return p.plat===pl.id; }).sort(function(a,b){ return a.fecha.localeCompare(b.fecha)||(a.hora||'').localeCompare(b.hora||''); });
+      if(!pp.length) return '';
+      return '<div style="margin-bottom:20px;page-break-inside:avoid">'
+        +'<div style="background:'+pl.bg+';border-radius:10px;padding:10px 16px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center">'
+        +'<div style="font-size:14px;font-weight:800;color:'+pl.color+'">'+pl.label+'</div>'
+        +'<span style="background:'+pl.color+';color:#fff;border-radius:20px;padding:2px 10px;font-size:11px;font-weight:700">'+pp.length+' publicación'+(pp.length>1?'es':'')+'</span>'
+        +'</div>'
+        +pp.map(postCard).join('')
+        +'</div>';
+    }).join('');
+
+    var fechaSemana=posts.length>0?posts[0].semana||'':'';
+
+    var div=document.createElement('div'); div.id='cal-review-modal';
+    div.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:400;display:flex;align-items:flex-start;justify-content:center;padding:20px;overflow-y:auto';
+    div.innerHTML=''
+      +'<div style="background:var(--card);border-radius:16px;width:820px;max-width:100%;margin:auto;box-shadow:0 24px 80px rgba(0,0,0,.3)">'
+      // Header
+      +'<div style="background:linear-gradient(135deg,#1e2235 0%,#2d3654 100%);border-radius:16px 16px 0 0;padding:20px 24px;display:flex;justify-content:space-between;align-items:center">'
+      +'<div>'
+      +'<div style="font-size:11px;font-weight:700;opacity:.6;text-transform:uppercase;letter-spacing:.08em;color:#fff">Machote de Revisión — Finh Soluciones Económicas</div>'
+      +'<div style="font-size:18px;font-weight:800;color:#fff">'+posts.length+' publicación'+(posts.length>1?'es':'')+' enviada'+(posts.length>1?'s':'')+' a revisión</div>'
+      +(fechaSemana?'<div style="font-size:12px;color:rgba(255,255,255,.6);margin-top:2px">Semana: '+esc(fechaSemana)+'</div>':'')
+      +'</div>'
+      +'<button onclick="document.getElementById(\'cal-review-modal\').remove()" style="background:rgba(255,255,255,.15);border:none;cursor:pointer;font-size:18px;color:#fff;width:36px;height:36px;border-radius:8px">✕</button>'
+      +'</div>'
+      // Toolbar
+      +'<div style="padding:14px 24px;border-bottom:1px solid var(--border);display:flex;gap:8px;align-items:center;flex-wrap:wrap">'
+      +'<span style="font-size:12px;color:var(--text2);font-weight:600">Enviar a revisión:</span>'
+      +'<button onclick="calExportPDF()" style="padding:8px 16px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;border:none;background:#ef4444;color:#fff">📄 Exportar PDF</button>'
+      +'<button onclick="calMarcarRevision()" style="padding:8px 16px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;border:none;background:#1e2235;color:#fff">✅ Marcar como "En revisión"</button>'
+      +'<button onclick="calImprimirMachote()" style="padding:8px 16px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;border:1.5px solid var(--border);background:var(--bg);color:var(--text)">🖨️ Imprimir</button>'
+      +'</div>'
+      // Content
+      +'<div id="cal-review-content" style="padding:24px;max-height:70vh;overflow-y:auto">'+byPlat+'</div>'
+      +'</div>';
+
+    document.body.appendChild(div);
+    div.addEventListener('click',function(e){ if(e.target===div) div.remove(); });
+  }
+
+  function calMarcarRevision(){
+    var ids=calState.selectedPosts;
+    ids.forEach(function(id){
+      var idx=CAL_DATA.findIndex(function(p){ return p.id===id||p.post_id===id; });
+      if(idx>=0){ CAL_DATA[idx].estado='en revisión'; sbPatch('cal_posts',{post_id:id},{estado:'en revisión'}).catch(function(){}); }
+    });
+    activosShowToast('✅ '+ids.length+' publicación(es) marcadas como "en revisión"');
+    renderCalendario();
+  }
+
+  function calImprimirMachote(){
+    var content=document.getElementById('cal-review-content');
+    if(!content) return;
+    var w=window.open('','_blank','width=900,height=700');
+    w.document.write('<html><head><title>Machote Revisión — Finh</title>'
+      +'<style>body{font-family:Inter,sans-serif;padding:32px;color:#1e2235}h2{font-size:18px}@media print{button{display:none}}</style>'
+      +'</head><body>'
+      +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;border-bottom:2px solid #e5e7eb;padding-bottom:16px">'
+      +'<div><h1 style="font-size:22px;font-weight:800;margin:0">Finh Soluciones Económicas</h1><p style="margin:4px 0 0;color:#6b7280;font-size:13px">Machote de Revisión — '+new Date().toLocaleDateString('es-MX',{weekday:'long',day:'2-digit',month:'long',year:'numeric'})+'</p></div>'
+      +'<button onclick="window.print()" style="padding:8px 18px;background:#e94560;color:#fff;border:none;border-radius:8px;font-weight:700;font-size:13px;cursor:pointer">🖨️ Imprimir / Guardar PDF</button>'
+      +'</div>'
+      +content.innerHTML
+      +'</body></html>');
+    w.document.close(); w.focus();
+  }
+
+  function calExportPDF(){
+    try {
+      var ids=calState.selectedPosts;
+      var posts=CAL_DATA.filter(function(p){ return ids.indexOf(p.id)>=0||ids.indexOf(p.post_id)>=0; }).sort(function(a,b){ return a.plat.localeCompare(b.plat)||a.fecha.localeCompare(b.fecha); });
+      var doc=new window.jspdf.jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
+      var y=15;
+      doc.setFontSize(18); doc.setFont(undefined,'bold'); doc.text('Finh — Machote de Revisión',14,y); y+=7;
+      doc.setFontSize(10); doc.setFont(undefined,'normal'); doc.setTextColor(120); doc.text('Generado: '+new Date().toLocaleDateString('es-MX'),14,y); y+=10; doc.setTextColor(0);
+      var PLATS=['linkedin','twitter','facebook'];
+      PLATS.forEach(function(plat){
+        var pp=posts.filter(function(p){ return p.plat===plat; });
+        if(!pp.length) return;
+        doc.setFillColor(plat==='linkedin'?'#dbeafe':plat==='twitter'?'#e0f2fe':'#ede9fe');
+        doc.setFontSize(13); doc.setFont(undefined,'bold');
+        doc.text((plat==='linkedin'?'LinkedIn':plat==='twitter'?'Twitter/X':'Facebook')+' ('+pp.length+')',14,y); y+=6;
+        doc.setFont(undefined,'normal'); doc.setFontSize(10);
+        pp.forEach(function(p){
+          if(y>260){ doc.addPage(); y=15; }
+          doc.setFont(undefined,'bold'); doc.text((p.titulo||'').slice(0,80),14,y); y+=5;
+          doc.setFont(undefined,'normal'); doc.setTextColor(100); doc.text((p.fecha||'')+(p.hora?' '+p.hora:'')+(p.formato?' · '+p.formato:''),14,y); y+=4; doc.setTextColor(0);
+          if(p.texto){ var lines=doc.splitTextToSize(p.texto,180); doc.text(lines,14,y); y+=lines.length*4+2; }
+          if(p.hashtags&&p.hashtags.length){ doc.setTextColor(79,70,229); doc.text(Array.isArray(p.hashtags)?p.hashtags.join(' '):p.hashtags,14,y); y+=4; doc.setTextColor(0); }
+          if(p.cta){ doc.setFont(undefined,'bold'); doc.text('CTA: ',14,y); doc.setFont(undefined,'normal'); doc.text(p.cta,24,y); y+=4; }
+          if(p.idea_visual){ var vl=doc.splitTextToSize('Visual: '+p.idea_visual,180); doc.setTextColor(100); doc.text(vl,14,y); y+=vl.length*4; doc.setTextColor(0); }
+          doc.setDrawColor(220); doc.line(14,y,196,y); y+=5;
+        });
+        y+=4;
+      });
+      doc.save('Finh-Revision-'+new Date().toISOString().slice(0,10)+'.pdf');
+      activosShowToast('📄 PDF generado correctamente');
+    } catch(e){ activosShowToast('Error al generar PDF: '+e.message); }
   }
 
   // =========================================================
@@ -6398,8 +6682,17 @@
   window.calAceptarRec    = calAceptarRec;
   window.calShowPostModal = calShowPostModal;
   window.calClosePostModal= calClosePostModal;
-  window.calSavePost      = calSavePost;
-  window.calDeletePost    = calDeletePost;
+  window.calSavePost           = calSavePost;
+  window.calDeletePost         = calDeletePost;
+  window.calToggleMultiSelect  = calToggleMultiSelect;
+  window.calTogglePostSelect   = calTogglePostSelect;
+  window.calClickPost          = calClickPost;
+  window.calShowReviewModal    = calShowReviewModal;
+  window.calMarcarRevision     = calMarcarRevision;
+  window.calImprimirMachote    = calImprimirMachote;
+  window.calExportPDF          = calExportPDF;
+  window.calEnviarRevision     = calEnviarRevision;
+  window.calPreviewFile        = calPreviewFile;
   // Activos
   window.activosSetCat      = activosSetCat;
   window.activosAddNew      = activosAddNew;
