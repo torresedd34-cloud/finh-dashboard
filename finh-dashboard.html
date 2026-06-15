@@ -5952,6 +5952,13 @@
     var defPlat = (post&&post.plat)||'linkedin';
     var pd = PLAT_DEFAULTS[defPlat]||PLAT_DEFAULTS.linkedin;
     var p=post||{id:'',fecha:fecha||new Date().toISOString().slice(0,10),plat:defPlat,titulo:'',estado:'borrador',texto:'',formato:pd.formato,objetivo:pd.objetivo,hashtags:[],cta:pd.cta,descargo_legal:false,idea_visual:'',prompt_imagen:'',imagen_url:''};
+    // Para posts de n8n: rellenar campos vacíos con defaults del platform
+    if(post){
+      if(!p.objetivo) p.objetivo=pd.objetivo;
+      if(!p.cta) p.cta=pd.cta;
+      if(!p.formato) p.formato=pd.formato;
+      if(!Array.isArray(p.hashtags)||!p.hashtags.length) p.hashtags=pd.hashtags.split(' ');
+    }
     var ex=document.getElementById('cal-post-modal'); if(ex) ex.remove();
     var INP='width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;background:var(--bg);color:var(--text)';
     var LBL='display:block;font-size:11px;font-weight:700;color:var(--text2);margin-bottom:4px;text-transform:uppercase;letter-spacing:.04em';
