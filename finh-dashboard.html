@@ -6459,6 +6459,7 @@
       +'<button onclick="calExportPDF()" style="padding:8px 16px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;border:none;background:#ef4444;color:#fff">📄 Exportar PDF</button>'
       +'<button onclick="calMarcarRevision()" style="padding:8px 16px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;border:none;background:#1e2235;color:#fff">✅ Marcar como "En revisión"</button>'
       +'<button onclick="calImprimirMachote()" style="padding:8px 16px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;border:1.5px solid var(--border);background:var(--bg);color:var(--text)">🖨️ Imprimir</button>'
+      +'<button onclick="calEnviarPorCorreo()" style="padding:8px 16px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;border:1.5px solid #0ea5e9;background:transparent;color:#0ea5e9">✉️ Enviar por correo</button>'
       +'</div>'
       // Content
       +'<div id="cal-review-content" style="padding:24px;max-height:70vh;overflow-y:auto">'+byPlat+emailSection+'</div>'
@@ -6476,6 +6477,111 @@
     });
     activosShowToast('✅ '+ids.length+' publicación(es) marcadas como "en revisión"');
     renderCalendario();
+  }
+
+  function calEnviarPorCorreo(){
+    var ids=calState.selectedPosts;
+    var eids=calState.selectedEmails||[];
+    var posts=CAL_DATA.filter(function(p){ return ids.indexOf(p.id)>=0||ids.indexOf(p.post_id)>=0; })
+      .sort(function(a,b){ return (a.plat||'').localeCompare(b.plat||'')||a.fecha.localeCompare(b.fecha); });
+    var selEmails=CAL_EMAIL_DATA.filter(function(e){ return eids.indexOf(e.id)>=0||eids.indexOf(e.email_id)>=0; })
+      .sort(function(a,b){ return a.fecha.localeCompare(b.fecha); });
+    var total=posts.length+selEmails.length;
+    if(!total){ activosShowToast('Selecciona publicaciones o emails primero'); return; }
+
+    var fechaSemana=posts.length>0?(posts[0].semana||posts[0].fecha||''):(selEmails.length>0?(selEmails[0].fecha||''):'');
+    var today=new Date().toLocaleDateString('es-MX',{day:'numeric',month:'numeric',year:'numeric'});
+    var yr=new Date().getFullYear();
+    var fileName='Finh-Machote-'+new Date().toISOString().slice(0,10)+'.html';
+
+    // ── Generar HTML del machote (igual que calImprimirMachote) ──────────────
+    var PLAT_COLOR={linkedin:'#1d4ed8',twitter:'#0ea5e9',facebook:'#7c3aed'};
+    var PLAT_LABEL={linkedin:'LinkedIn',twitter:'Twitter/X',facebook:'Facebook'};
+    function escH(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+    function cardHtml(item,isEmail){
+      var img=item.imagen_url&&item.imagen_url.startsWith('http')&&!item.imagen_url.startsWith('[')?item.imagen_url:'';
+      var platLabel=isEmail?'Email Marketing':(PLAT_LABEL[item.plat]||item.plat||'');
+      var platColor=isEmail?'#0f766e':(PLAT_COLOR[item.plat]||'#374151');
+      var title=isEmail?(item.asunto||'Sin asunto'):(item.titulo||'');
+      var meta=(item.fecha||'')+(item.hora?' '+item.hora:'');
+      var sub=isEmail?((item.tipo_envio||'').replace(/_/g,' ')):(item.formato||'');
+      var body=isEmail?(item.cuerpo||''):(item.texto||'');
+      var hashes=!isEmail?(Array.isArray(item.hashtags)?item.hashtags.join(' '):(item.hashtags||'')):'';
+      var ctaTxt=isEmail?(item.cta_texto||''):(item.cta||'');
+      var ctaExtra=isEmail&&item.cta_url?' | '+item.cta_url:'';
+      return '<div class="card" style="grid-template-columns:'+(img?'1fr 240px':'1fr')+'">'
+        +'<div style="min-width:0;overflow-wrap:break-word;word-break:break-word">'
+        +'<div style="font-size:19px;font-weight:800;color:'+platColor+';margin-bottom:3px">'+escH(platLabel)+'</div>'
+        +'<div style="font-size:15px;font-weight:700;color:#111827;margin-bottom:4px">'+escH(title)+'</div>'
+        +(meta||sub?'<div style="font-size:12px;color:#6b7280;margin-bottom:10px">'+escH(meta)+(sub?' · '+escH(sub):'')+'</div>':'')
+        +(body?'<div class="body-text" style="margin-bottom:10px">'+escH(body)+'</div>':'')
+        +(hashes?'<div style="font-size:13px;color:#0891b2;margin-bottom:8px;word-break:break-word">'+escH(hashes)+'</div>':'')
+        +(ctaTxt?'<div style="font-size:13px;font-weight:700;color:#111827"><strong>CTA:</strong> '+escH(ctaTxt+ctaExtra)+'</div>':'')
+        +'</div>'
+        +(img?'<div style="flex-shrink:0"><img class="card-img" src="'+escH(img)+'" onerror="this.parentNode.style.display=\'none\'"></div>':'')
+        +'</div>';
+    }
+    var postCards=['linkedin','twitter','facebook'].map(function(plat){
+      return posts.filter(function(p){ return p.plat===plat; }).map(function(p){ return cardHtml(p,false); }).join('');
+    }).join('');
+    var emailCards=selEmails.map(function(e){ return cardHtml(e,true); }).join('');
+
+    var css='*{box-sizing:border-box;margin:0;padding:0}'
+      +'body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;background:#fff;color:#111827;font-size:14px}'
+      +'.page{max-width:900px;margin:0 auto;padding:40px 48px 100px}'
+      +'.card{display:grid;gap:24px;padding:24px 0;border-bottom:1px solid #e5e7eb;page-break-inside:avoid}'
+      +'.card-img{width:100%;border-radius:10px;object-fit:cover;max-height:260px}'
+      +'.body-text{font-size:13px;line-height:1.75;color:#374151;text-align:justify;white-space:pre-wrap;word-break:break-word;overflow-wrap:break-word}'
+      +'.footer{background:#1e2235;color:rgba(255,255,255,.75);text-align:center;font-size:11px;padding:13px;margin-top:40px}'
+      +'@media print{.footer{position:fixed;bottom:0;left:0;right:0}}';
+
+    var html='<!DOCTYPE html><html lang="es"><head>'
+      +'<meta charset="utf-8"><title>Finh — Machote de Revisión</title>'
+      +'<style>'+css+'</style></head><body>'
+      +'<div class="page">'
+      +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">'
+      +'<div style="display:flex;align-items:center;gap:16px">'
+      +'<img src="https://finh.mx/wp-content/uploads/2024/01/logo-finh.png" height="44" onerror="this.style.display=\'none\'" style="height:44px">'
+      +'<div style="font-size:12px;color:#374151;line-height:1.6"><strong>Finh Soluciones Económicas, S.A.P.I.<br>de C.V., SOFOM, E.N.R.</strong></div>'
+      +'</div></div>'
+      +'<hr style="border:none;border-top:1.5px solid #e5e7eb;margin-bottom:20px">'
+      +'<div style="text-align:center;margin-bottom:20px">'
+      +'<h1 style="font-size:22px;font-weight:800;margin-bottom:4px">Finh — Machote de Revisión</h1>'
+      +'<p style="font-size:13px;color:#6b7280">Generado: '+today+'</p>'
+      +'</div>'
+      +(postCards+emailCards)
+      +'</div>'
+      +'<div class="footer">Finh Soluciones Económicas | Marketing HubMaster DERECHOS RESERVADOS – FINH '+yr+'</div>'
+      +'</body></html>';
+
+    // ── 1. Descargar el archivo automáticamente ──────────────────────────────
+    var blob=new Blob([html],{type:'text/html;charset=utf-8'});
+    var dlUrl=URL.createObjectURL(blob);
+    var a=document.createElement('a'); a.href=dlUrl; a.download=fileName;
+    document.body.appendChild(a); a.click();
+    setTimeout(function(){ document.body.removeChild(a); URL.revokeObjectURL(dlUrl); },1000);
+
+    // ── 2. Abrir correo prellenado ───────────────────────────────────────────
+    var platLines=[];
+    ['linkedin','twitter','facebook'].forEach(function(pl){
+      var pp=posts.filter(function(p){ return p.plat===pl; });
+      if(pp.length) platLines.push('  • '+(pl==='linkedin'?'LinkedIn':pl==='twitter'?'Twitter/X':'Facebook')+' ('+pp.length+'): '+pp.map(function(p){ return p.titulo||'Sin título'; }).join(', '));
+    });
+    if(selEmails.length) platLines.push('  • Email Marketing ('+selEmails.length+'): '+selEmails.map(function(e){ return e.asunto||'Sin asunto'; }).join(', '));
+
+    var subject='Machote de Revisión — Finh (semana '+fechaSemana+')';
+    var body='Hola,\n\n'
+      +'Te comparto el machote de revisión de contenido para la semana del '+fechaSemana+'.\n\n'
+      +'Elementos incluidos ('+total+' en total):\n'+platLines.join('\n')+'\n\n'
+      +'El archivo adjunto ('+fileName+') contiene el machote completo — ábrelo en el navegador e imprime como PDF si lo necesitas.\n\n'
+      +'Por favor comparte tus comentarios a la brevedad.\n\n'
+      +'Gracias,\nEduardo Torres\nFinh Soluciones Económicas\n(55) 6798 1672 | finh.mx';
+
+    setTimeout(function(){
+      window.location.href='mailto:?subject='+encodeURIComponent(subject)+'&body='+encodeURIComponent(body);
+    },300);
+
+    activosShowToast('📥 Descargando machote... El correo se abre en un momento');
   }
 
   function calImprimirMachote(){
@@ -7056,6 +7162,7 @@
   window.calEmailPreviewFile   = calEmailPreviewFile;
   window.calEmailClearImage    = calEmailClearImage;
   window.calToggleEmail        = calToggleEmail;
+  window.calEnviarPorCorreo    = calEnviarPorCorreo;
   window.calEmailExportPDF     = calEmailExportPDF;
   window.calPlatDefaults       = calPlatDefaults;
   window.calInitPlatDefaults   = calInitPlatDefaults;
