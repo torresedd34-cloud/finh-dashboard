@@ -6188,8 +6188,11 @@
       +'<label style="'+LBL+';text-align:center;display:block">📁 Imagen / Video aprobado</label>'
       +(p.imagen_url?'<div style="margin-bottom:10px"><img src="'+esc(p.imagen_url)+'" onerror="this.style.display=\'none\'" style="max-height:120px;border-radius:8px;max-width:100%"></div>':'')
       +'<input type="file" id="cpm-file" accept="image/*,video/*" onchange="calPreviewFile(this)" style="font-size:12px;color:var(--text2)">'
-      +'<input type="text" id="cpm-imagen-url" value="'+esc(p.imagen_url||'')+'" placeholder="O pega aquí la URL de la imagen/video..." style="margin-top:8px;'+INP+';font-size:12px">'
       +'<div id="cpm-file-preview" style="margin-top:8px"></div>'
+      +'<div style="display:flex;gap:6px;margin-top:8px;align-items:center">'
+      +'<input type="text" id="cpm-imagen-url" value="'+esc(p.imagen_url||'')+'" placeholder="O pega aquí la URL de la imagen/video..." style="flex:1;'+INP+';font-size:12px">'
+      +(p.imagen_url?'<button type="button" onclick="calClearImage()" title="Eliminar imagen" style="padding:8px 12px;border-radius:8px;border:1px solid #fecaca;background:#fef2f2;color:#ef4444;cursor:pointer;font-size:14px;white-space:nowrap">🗑 Eliminar</button>':'<button type="button" id="cpm-clear-btn" onclick="calClearImage()" title="Eliminar imagen" style="display:none;padding:8px 12px;border-radius:8px;border:1px solid #fecaca;background:#fef2f2;color:#ef4444;cursor:pointer;font-size:14px;white-space:nowrap">🗑 Eliminar</button>')
+      +'</div>'
       +'</div>'
       +'</div>'
       // Footer
@@ -6225,6 +6228,7 @@
       if(res.ok){
         var publicUrl=SUPABASE_URL+'/storage/v1/object/public/post-media/'+fileName;
         urlField.value=publicUrl;
+        var btn=document.getElementById('cpm-clear-btn'); if(btn) btn.style.display='';
       } else {
         urlField.value='[error al subir: '+res.status+']';
       }
@@ -6274,6 +6278,17 @@
   }
 
   function calAddPromptChip(s){ var el=document.getElementById('cpm-prompt'); if(el) el.value+=(el.value?', ':'')+s; }
+
+  function calClearImage(){
+    var urlField=document.getElementById('cpm-imagen-url');
+    var prev=document.getElementById('cpm-file-preview');
+    var fileInput=document.getElementById('cpm-file');
+    var btn=document.getElementById('cpm-clear-btn');
+    if(urlField){ urlField.value=''; }
+    if(prev){ prev.innerHTML=''; }
+    if(fileInput){ fileInput.value=''; }
+    if(btn){ btn.style.display='none'; }
+  }
 
   function calPlatDefaults(plat){
     var pd=PLAT_DEFAULTS[plat]||PLAT_DEFAULTS.linkedin;
@@ -6901,6 +6916,7 @@
   window.calShowPostModal = calShowPostModal;
   window.calClosePostModal= calClosePostModal;
   window.calAddPromptChip      = calAddPromptChip;
+  window.calClearImage         = calClearImage;
   window.calSavePost           = calSavePost;
   window.calDeletePost         = calDeletePost;
   window.calToggleMultiSelect  = calToggleMultiSelect;
