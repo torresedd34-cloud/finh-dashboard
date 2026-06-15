@@ -5497,7 +5497,7 @@
     var mon = new Date(n); mon.setDate(n.getDate()-(dow===0?6:dow-1));
     var wStr = mon.getFullYear()+'-'+p(mon.getMonth()+1)+'-'+p(mon.getDate());
     var dStr = n.getFullYear()+'-'+p(n.getMonth()+1)+'-'+p(n.getDate());
-    return { tab:'social', view:'mes', year:n.getFullYear(), month:n.getMonth(), day:dStr, weekStart:wStr, emailView:'mes', multiSelect:false, selectedPosts:[] };
+    return { tab:'social', view:'mes', year:n.getFullYear(), month:n.getMonth(), day:dStr, weekStart:wStr, emailView:'mes', multiSelect:false, selectedPosts:[], selectedEmails:[] };
   })();
 
   function renderCalendario() {
@@ -5580,11 +5580,12 @@
       +'</div>';
 
     // Barra flotante de revisión
-    var reviewBar = calState.multiSelect && calState.selectedPosts.length > 0
+    var _selP=calState.selectedPosts.length, _selE=(calState.selectedEmails||[]).length;
+    var reviewBar = calState.multiSelect && (_selP>0||_selE>0)
       ? '<div id="cal-review-bar" style="position:sticky;top:0;z-index:50;background:#1e2235;color:#fff;border-radius:10px;padding:10px 18px;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;gap:12px;box-shadow:0 4px 16px rgba(0,0,0,.25)">'
-        +'<div style="font-size:13px;font-weight:700">'+calState.selectedPosts.length+' publicación'+(calState.selectedPosts.length>1?'es':'')+' seleccionada'+(calState.selectedPosts.length>1?'s':'')+' — lista para revisión</div>'
+        +'<div style="font-size:13px;font-weight:700">'+(_selP>0?_selP+' publicación'+(_selP>1?'es':'')+(_selE>0?' + ':''):'')+(_selE>0?_selE+' email'+(_selE>1?'s':''):'')+'  — listo'+((_selP+_selE)>1?'s':'')+' para revisión</div>'
         +'<div style="display:flex;gap:8px">'
-        +'<button onclick="calState.selectedPosts=[];renderCalendario()" style="padding:6px 14px;border-radius:7px;font-size:12px;font-weight:600;cursor:pointer;border:1px solid rgba(255,255,255,.3);background:transparent;color:#fff">Limpiar</button>'
+        +'<button onclick="calState.selectedPosts=[];calState.selectedEmails=[];renderCalendario()" style="padding:6px 14px;border-radius:7px;font-size:12px;font-weight:600;cursor:pointer;border:1px solid rgba(255,255,255,.3);background:transparent;color:#fff">Limpiar</button>'
         +'<button onclick="calShowReviewModal()" style="padding:6px 18px;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer;border:none;background:var(--accent);color:#fff">📋 Ver machote de revisión</button>'
         +'</div></div>'
       : '';
@@ -5826,7 +5827,7 @@
           +'<span style="font-size:11px;color:var(--text-muted)">'+e.segmento+'</span>'
           +(e.estado==='enviado'?'<span style="font-size:11px;color:var(--text-muted)">Apertura: <b>'+e.apertura+'%</b> · Clics: <b>'+e.clicks+'%</b></span>':'')
           +'</div></div>'
-          +'<div style="display:flex;gap:6px;align-items:center"><button class="tarea-btn" onclick="calViewEmail(\''+e.id+'\')">Ver</button></div>'
+          +'<div style="display:flex;gap:6px;align-items:center">'+(calState.multiSelect?'<button class="tarea-btn" onclick="calToggleEmail(\''+e.id+'\')" style="background:'+((calState.selectedEmails||[]).indexOf(e.id)>=0?'var(--accent)':'')+';color:'+((calState.selectedEmails||[]).indexOf(e.id)>=0?'#fff':'')+'">☑</button>':'')+'<button class="tarea-btn" onclick="calViewEmail(\''+e.id+'\')">Ver</button></div>'
           +'</div>';
       }).join('')
       +'</div>';
@@ -6000,10 +6001,11 @@
       // Bloque 4: Imagen
       +'<div style="'+SECT+';border:1.5px dashed var(--border)">'
       +'<div style="font-size:12px;font-weight:700;color:var(--accent);margin-bottom:10px;text-transform:uppercase;letter-spacing:.05em">🖼 Imagen del email</div>'
-      +(e.imagen_url&&!e.imagen_url.startsWith('[')&&e.imagen_url.startsWith('http')?'<img src="'+esc(e.imagen_url)+'" style="max-height:100px;border-radius:8px;margin-bottom:8px;max-width:100%" onerror="this.style.display=\'none\'">':'')
+      +'<div id="cem-img-preview-wrap">'+(e.imagen_url&&!e.imagen_url.startsWith('[')&&e.imagen_url.startsWith('http')?'<img src="'+esc(e.imagen_url)+'" style="max-height:100px;border-radius:8px;margin-bottom:8px;max-width:100%" onerror="this.style.display=\'none\'">':'')+'</div>'
       +'<input type="file" id="cem-file" accept="image/*" onchange="calEmailPreviewFile(this)" style="font-size:12px;color:var(--text2)">'
       +'<div id="cem-file-preview" style="margin-top:8px"></div>'
       +'<input type="text" id="cem-imagen-url" value="'+esc(e.imagen_url||'')+'" placeholder="O pega aquí la URL de la imagen..." style="margin-top:8px;'+INP+';font-size:12px">'
+      +'<button id="cem-clear-btn" onclick="calEmailClearImage()" style="margin-top:8px;padding:6px 14px;border-radius:7px;font-size:12px;font-weight:600;cursor:pointer;border:1.5px solid #ef4444;background:transparent;color:#ef4444;'+(e.imagen_url&&!e.imagen_url.startsWith('[')&&e.imagen_url.startsWith('http')?'':'display:none')+'">🗑 Eliminar imagen</button>'
       +'</div>'
 
       +'</div>'
@@ -6033,9 +6035,24 @@
         headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Content-Type':file.type,'x-upsert':'true'},
         body:file
       });
-      if(res.ok){ urlField.value=SUPABASE_URL+'/storage/v1/object/public/post-media/'+fileName; }
-      else { urlField.value='[error al subir: '+res.status+']'; }
+      if(res.ok){
+        urlField.value=SUPABASE_URL+'/storage/v1/object/public/post-media/'+fileName;
+        var btn=document.getElementById('cem-clear-btn'); if(btn) btn.style.display='';
+      } else { urlField.value='[error al subir: '+res.status+']'; }
     } catch(er){ urlField.value='[error: '+er.message+']'; }
+  }
+
+  function calEmailClearImage(){
+    var urlField=document.getElementById('cem-imagen-url');
+    var prev=document.getElementById('cem-file-preview');
+    var wrap=document.getElementById('cem-img-preview-wrap');
+    var fileInput=document.getElementById('cem-file');
+    var btn=document.getElementById('cem-clear-btn');
+    if(urlField) urlField.value='';
+    if(prev) prev.innerHTML='';
+    if(wrap) wrap.innerHTML='';
+    if(fileInput) fileInput.value='';
+    if(btn) btn.style.display='none';
   }
 
   function calSaveEmail(emailId){
@@ -6337,10 +6354,19 @@
     else { calViewPost(id); }
   }
 
+  function calToggleEmail(id){
+    if(!calState.selectedEmails) calState.selectedEmails=[];
+    var idx=calState.selectedEmails.indexOf(id);
+    if(idx>=0){ calState.selectedEmails.splice(idx,1); } else { calState.selectedEmails.push(id); }
+    renderCalendario();
+  }
+
   function calShowReviewModal(){
     var ids=calState.selectedPosts;
+    var eids=calState.selectedEmails||[];
     var posts=CAL_DATA.filter(function(p){ return ids.indexOf(p.id)>=0||ids.indexOf(p.post_id)>=0; });
-    if(!posts.length){ activosShowToast('Selecciona al menos una publicación'); return; }
+    var selEmails=CAL_EMAIL_DATA.filter(function(e){ return eids.indexOf(e.id)>=0||eids.indexOf(e.email_id)>=0; });
+    if(!posts.length&&!selEmails.length){ activosShowToast('Selecciona al menos una publicación o email'); return; }
     var ex=document.getElementById('cal-review-modal'); if(ex) ex.remove();
 
     var PLATS=[
@@ -6373,6 +6399,24 @@
         +'</div>';
     }
 
+    function emailCard(e){
+      return '<div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:16px;margin-bottom:12px;page-break-inside:avoid">'
+        +'<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">'
+        +'<div>'
+        +'<div style="font-size:13px;font-weight:800;color:var(--text)">'+esc(e.asunto||'Sin asunto')+'</div>'
+        +'<div style="font-size:11px;color:var(--text2);margin-top:2px">'+(e.fecha||'')+(e.hora?' · '+e.hora:'')+(e.tipo_envio?' · '+e.tipo_envio.replace(/_/g,' '):'')+(e.segmento?' · '+e.segmento:'')+'</div>'
+        +'</div>'
+        +'<span style="background:'+(e.estado==='enviado'?'#dcfce7':e.estado==='programado'?'#dbeafe':'#f3f4f6')+';color:'+(e.estado==='enviado'?'#16a34a':e.estado==='programado'?'#1d4ed8':'#6b7280')+';border-radius:6px;padding:3px 10px;font-size:10px;font-weight:700;white-space:nowrap">'+esc(e.estado||'borrador')+'</span>'
+        +'</div>'
+        +(e.preview_text?'<div style="font-size:11px;color:#6b7280;margin-bottom:8px;font-style:italic">'+esc(e.preview_text)+'</div>':'')
+        +(e.cuerpo?'<div style="font-size:12px;line-height:1.7;color:var(--text);background:#f9fafb;border-radius:8px;padding:10px 12px;margin-bottom:8px;white-space:pre-wrap">'+esc(e.cuerpo)+'</div>':'')
+        +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:11px">'
+        +(e.cta_texto?'<div><span style="font-weight:700;color:#6b7280">CTA:</span> '+esc(e.cta_texto)+(e.cta_url?' → '+esc(e.cta_url):'')+'</div>':'')
+        +(e.imagen_url&&e.imagen_url.startsWith('http')?'<div style="grid-column:1/-1"><img src="'+esc(e.imagen_url)+'" style="max-height:80px;border-radius:6px" onerror="this.style.display=\'none\'"></div>':'')
+        +'</div>'
+        +'</div>';
+    }
+
     var byPlat=PLATS.map(function(pl){
       var pp=posts.filter(function(p){ return p.plat===pl.id; }).sort(function(a,b){ return a.fecha.localeCompare(b.fecha)||(a.hora||'').localeCompare(b.hora||''); });
       if(!pp.length) return '';
@@ -6385,7 +6429,16 @@
         +'</div>';
     }).join('');
 
+    var emailSection=selEmails.length?'<div style="margin-bottom:20px">'
+      +'<div style="background:#ccfbf1;border-radius:10px;padding:10px 16px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center">'
+      +'<div style="font-size:14px;font-weight:800;color:#0f766e">✉️ Email Marketing</div>'
+      +'<span style="background:#0f766e;color:#fff;border-radius:20px;padding:2px 10px;font-size:11px;font-weight:700">'+selEmails.length+' email'+(selEmails.length>1?'s':'')+'</span>'
+      +'</div>'
+      +selEmails.sort(function(a,b){ return a.fecha.localeCompare(b.fecha); }).map(emailCard).join('')
+      +'</div>':'';
+
     var fechaSemana=posts.length>0?posts[0].semana||'':'';
+    var totalItems=posts.length+selEmails.length;
 
     var div=document.createElement('div'); div.id='cal-review-modal';
     div.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:400;display:flex;align-items:flex-start;justify-content:center;padding:20px;overflow-y:auto';
@@ -6395,7 +6448,7 @@
       +'<div style="background:linear-gradient(135deg,#1e2235 0%,#2d3654 100%);border-radius:16px 16px 0 0;padding:20px 24px;display:flex;justify-content:space-between;align-items:center">'
       +'<div>'
       +'<div style="font-size:11px;font-weight:700;opacity:.6;text-transform:uppercase;letter-spacing:.08em;color:#fff">Machote de Revisión — Finh Soluciones Económicas</div>'
-      +'<div style="font-size:18px;font-weight:800;color:#fff">'+posts.length+' publicación'+(posts.length>1?'es':'')+' enviada'+(posts.length>1?'s':'')+' a revisión</div>'
+      +'<div style="font-size:18px;font-weight:800;color:#fff">'+totalItems+' elemento'+(totalItems>1?'s':'')+' en revisión'+(posts.length&&selEmails.length?' ('+posts.length+' post'+(posts.length>1?'s':'')+' + '+selEmails.length+' email'+(selEmails.length>1?'s':'')+')':(posts.length?' ('+posts.length+' publicación'+(posts.length>1?'es':'')+')':(selEmails.length?' ('+selEmails.length+' email'+(selEmails.length>1?'s':'')+')':'')))+'</div>'
       +(fechaSemana?'<div style="font-size:12px;color:rgba(255,255,255,.6);margin-top:2px">Semana: '+esc(fechaSemana)+'</div>':'')
       +'</div>'
       +'<button onclick="document.getElementById(\'cal-review-modal\').remove()" style="background:rgba(255,255,255,.15);border:none;cursor:pointer;font-size:18px;color:#fff;width:36px;height:36px;border-radius:8px">✕</button>'
@@ -6408,7 +6461,7 @@
       +'<button onclick="calImprimirMachote()" style="padding:8px 16px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;border:1.5px solid var(--border);background:var(--bg);color:var(--text)">🖨️ Imprimir</button>'
       +'</div>'
       // Content
-      +'<div id="cal-review-content" style="padding:24px;max-height:70vh;overflow-y:auto">'+byPlat+'</div>'
+      +'<div id="cal-review-content" style="padding:24px;max-height:70vh;overflow-y:auto">'+byPlat+emailSection+'</div>'
       +'</div>';
 
     document.body.appendChild(div);
@@ -6426,17 +6479,80 @@
   }
 
   function calImprimirMachote(){
-    var content=document.getElementById('cal-review-content');
-    if(!content) return;
-    var w=window.open('','_blank','width=900,height=700');
-    w.document.write('<html><head><title>Machote Revisión — Finh</title>'
-      +'<style>body{font-family:Inter,sans-serif;padding:32px;color:#1e2235}h2{font-size:18px}@media print{button{display:none}}</style>'
-      +'</head><body>'
-      +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;border-bottom:2px solid #e5e7eb;padding-bottom:16px">'
-      +'<div><h1 style="font-size:22px;font-weight:800;margin:0">Finh Soluciones Económicas</h1><p style="margin:4px 0 0;color:#6b7280;font-size:13px">Machote de Revisión — '+new Date().toLocaleDateString('es-MX',{weekday:'long',day:'2-digit',month:'long',year:'numeric'})+'</p></div>'
-      +'<button onclick="window.print()" style="padding:8px 18px;background:#e94560;color:#fff;border:none;border-radius:8px;font-weight:700;font-size:13px;cursor:pointer">🖨️ Imprimir / Guardar PDF</button>'
+    var ids=calState.selectedPosts;
+    var eids=calState.selectedEmails||[];
+    var posts=CAL_DATA.filter(function(p){ return ids.indexOf(p.id)>=0||ids.indexOf(p.post_id)>=0; })
+      .sort(function(a,b){ return (a.plat||'').localeCompare(b.plat||'')||a.fecha.localeCompare(b.fecha); });
+    var emails=CAL_EMAIL_DATA.filter(function(e){ return eids.indexOf(e.id)>=0||eids.indexOf(e.email_id)>=0; })
+      .sort(function(a,b){ return a.fecha.localeCompare(b.fecha); });
+    if(!posts.length&&!emails.length){ activosShowToast('Selecciona publicaciones o emails para el machote'); return; }
+
+    var today=new Date().toLocaleDateString('es-MX',{day:'numeric',month:'numeric',year:'numeric'});
+    var yr=new Date().getFullYear();
+    var PLAT_COLOR={linkedin:'#1d4ed8',twitter:'#0ea5e9',facebook:'#7c3aed'};
+    var PLAT_LABEL={linkedin:'LinkedIn',twitter:'Twitter/X',facebook:'Facebook'};
+
+    function escH(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+    function card(item, isEmail){
+      var img=item.imagen_url&&item.imagen_url.startsWith('http')&&!item.imagen_url.startsWith('[')?item.imagen_url:'';
+      var platLabel=isEmail?'Email Marketing':(PLAT_LABEL[item.plat]||item.plat||'');
+      var platColor=isEmail?'#0f766e':(PLAT_COLOR[item.plat]||'#374151');
+      var title=isEmail?(item.asunto||'Sin asunto'):(item.titulo||'');
+      var meta=(item.fecha||'')+(item.hora?' '+item.hora:'');
+      var sub=isEmail?((item.tipo_envio||'').replace(/_/g,' ')):(item.formato||'');
+      var body=isEmail?(item.cuerpo||''):(item.texto||'');
+      var hashes=!isEmail?(Array.isArray(item.hashtags)?item.hashtags.join(' '):(item.hashtags||'')):'';
+      var ctaTxt=isEmail?(item.cta_texto||''):(item.cta||'');
+      var ctaExtra=isEmail&&item.cta_url?' | '+item.cta_url:'';
+      return '<div style="display:grid;grid-template-columns:'+(img?'1fr 240px':'1fr')+';gap:28px;padding:24px 0;border-bottom:1px solid #e5e7eb;page-break-inside:avoid">'
+        +'<div>'
+        +'<div style="font-size:19px;font-weight:800;color:'+platColor+';margin-bottom:3px">'+escH(platLabel)+'</div>'
+        +'<div style="font-size:15px;font-weight:700;color:#111827;margin-bottom:4px">'+escH(title)+'</div>'
+        +(meta||sub?'<div style="font-size:12px;color:#6b7280;margin-bottom:10px">'+escH(meta)+(sub?' · '+escH(sub):'')+'</div>':'')
+        +(body?'<div style="font-size:13px;line-height:1.75;color:#374151;text-align:justify;margin-bottom:10px;white-space:pre-wrap">'+escH(body)+'</div>':'')
+        +(hashes?'<div style="font-size:13px;color:#0891b2;margin-bottom:8px">'+escH(hashes)+'</div>':'')
+        +(ctaTxt?'<div style="font-size:13px;font-weight:700;color:#111827">CTA: '+escH(ctaTxt+ctaExtra)+'</div>':'')
+        +'</div>'
+        +(img?'<div style="display:flex;align-items:flex-start"><img src="'+escH(img)+'" style="width:100%;border-radius:10px;object-fit:cover" onerror="this.parentNode.style.display=\'none\'"></div>':'')
+        +'</div>';
+    }
+
+    var postCards=['linkedin','twitter','facebook'].map(function(plat){
+      return posts.filter(function(p){ return p.plat===plat; }).map(function(p){ return card(p,false); }).join('');
+    }).join('');
+    var emailCards=emails.map(function(e){ return card(e,true); }).join('');
+
+    var w=window.open('','_blank','width=980,height=800');
+    w.document.write('<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><title>Finh — Machote de Revisión</title>'
+      +'<style>'
+      +'@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap");'
+      +'*{box-sizing:border-box;margin:0;padding:0}'
+      +'body{font-family:Inter,Arial,sans-serif;background:#fff;color:#111827}'
+      +'.page{max-width:900px;margin:0 auto;padding:40px 48px 80px}'
+      +'.print-btn{padding:8px 20px;background:#dc2626;color:#fff;border:none;border-radius:8px;font-weight:700;font-size:13px;cursor:pointer}'
+      +'.footer{position:fixed;bottom:0;left:0;right:0;background:#1e2235;color:rgba(255,255,255,.75);text-align:center;font-size:11px;padding:12px;letter-spacing:.03em}'
+      +'@media print{.print-btn{display:none!important}}'
+      +'</style></head><body>'
+      +'<div class="page">'
+      // Header
+      +'<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px">'
+      +'<div style="display:flex;align-items:center;gap:16px">'
+      +'<img src="https://finh.mx/wp-content/uploads/2024/01/logo-finh.png" height="44" onerror="this.style.display=\'none\'">'
+      +'<div style="font-size:12px;color:#374151;line-height:1.6"><strong>Finh Soluciones Económicas, S.A.P.I.<br>de C.V., SOFOM, E.N.R.</strong></div>'
       +'</div>'
-      +content.innerHTML
+      +'<button class="print-btn" onclick="window.print()">🖨️ Imprimir / Guardar PDF</button>'
+      +'</div>'
+      +'<hr style="border:none;border-top:1.5px solid #e5e7eb;margin-bottom:20px">'
+      // Title
+      +'<div style="text-align:center;margin-bottom:8px">'
+      +'<h1 style="font-size:22px;font-weight:800;margin-bottom:4px">Finh — Machote de Revisión</h1>'
+      +'<p style="font-size:13px;color:#6b7280">Generado: '+today+'</p>'
+      +'</div>'
+      // Cards
+      +(postCards+emailCards||'<p style="text-align:center;color:#9ca3af;padding:40px">Sin elementos</p>')
+      +'</div>'
+      +'<div class="footer">Finh Soluciones Económicas | Marketing HubMaster DERECHOS RESERVADOS – FINH '+yr+'</div>'
       +'</body></html>');
     w.document.close(); w.focus();
   }
@@ -6931,6 +7047,8 @@
   window.calViewEmail          = calViewEmail;
   window.calSaveEmail          = calSaveEmail;
   window.calEmailPreviewFile   = calEmailPreviewFile;
+  window.calEmailClearImage    = calEmailClearImage;
+  window.calToggleEmail        = calToggleEmail;
   window.calEmailExportPDF     = calEmailExportPDF;
   window.calPlatDefaults       = calPlatDefaults;
   window.calInitPlatDefaults   = calInitPlatDefaults;
