@@ -6569,11 +6569,11 @@
     });
     if(selEmails.length) platLines.push('  • Email Marketing ('+selEmails.length+'): '+selEmails.map(function(e){ return e.asunto||'Sin asunto'; }).join(', '));
 
-    var subject='Machote de Revisión — Finh (semana '+fechaSemana+')';
+    var subject='Machote de Revisión — Publicaciones Finh (semana '+fechaSemana+')';
     var body='Hola,\n\n'
       +'Te comparto el machote de revisión de contenido para la semana del '+fechaSemana+'.\n\n'
       +'Elementos incluidos ('+total+' en total):\n'+platLines.join('\n')+'\n\n'
-      +'El archivo adjunto ('+fileName+') contiene el machote completo — ábrelo en el navegador e imprime como PDF si lo necesitas.\n\n'
+      +'El archivo adjunto contiene el machote completo.\n\n'
       +'Por favor comparte tus comentarios a la brevedad.\n\n'
       +'Gracias,\nEduardo Torres\nFinh Soluciones Económicas\n(55) 6798 1672 | finh.mx';
 
