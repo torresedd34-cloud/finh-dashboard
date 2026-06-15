@@ -6008,7 +6008,7 @@
       +'<label style="'+LBL+';color:#4f46e5">🤖 Prompt para generar imagen / video con IA</label>'
       +'<textarea id="cpm-prompt" rows="3" placeholder="Ej: Fotografia corporativa de empresario mexicano revisando documentos, estilo limpio profesional, colores azul y rojo Finh, logo en esquina inferior..." style="width:100%;padding:9px 12px;border:1.5px solid #c7d2fe;border-radius:8px;font-size:13px;background:#fff;color:var(--text);resize:vertical;font-family:inherit;line-height:1.6">'+esc(p.prompt_imagen||'')+'</textarea>'
       +'<div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">'
-      +['foto corporativa','empresario mexicano','infografía minimalista','reel animado','datos y estadísticas','fondo abstracto azul','producto financiero'].map(function(s){ return '<span onclick="document.getElementById(\'cpm-prompt\').value+=(document.getElementById(\'cpm-prompt\').value?\', ':\'\')+\''+s+'\'" style="font-size:10px;padding:3px 9px;background:#e0e7ff;color:#4338ca;border-radius:6px;cursor:pointer;font-weight:600">+'+s+'</span>'; }).join('')
+      +['foto corporativa','empresario mexicano','infografía minimalista','reel animado','datos y estadísticas','fondo abstracto azul','producto financiero'].map(function(s){ return '<span onclick="calAddPromptChip(\''+s+'\')" style="font-size:10px;padding:3px 9px;background:#e0e7ff;color:#4338ca;border-radius:6px;cursor:pointer;font-weight:600">+'+s+'</span>'; }).join('')
       +'</div></div>'
       // Subir imagen/video
       +'<div style="border:2px dashed var(--border);border-radius:10px;padding:16px;text-align:center">'
@@ -6080,6 +6080,8 @@
     calClosePostModal(); renderCalendario();
     calState.selectedPosts=[id]; calShowReviewModal();
   }
+
+  function calAddPromptChip(s){ var el=document.getElementById('cpm-prompt'); if(el) el.value+=(el.value?', ':'')+s; }
 
   function calDeletePost(id){
     if(!confirm('¿Eliminar esta publicación?')) return;
@@ -6684,6 +6686,7 @@
   window.calAceptarRec    = calAceptarRec;
   window.calShowPostModal = calShowPostModal;
   window.calClosePostModal= calClosePostModal;
+  window.calAddPromptChip      = calAddPromptChip;
   window.calSavePost           = calSavePost;
   window.calDeletePost         = calDeletePost;
   window.calToggleMultiSelect  = calToggleMultiSelect;
