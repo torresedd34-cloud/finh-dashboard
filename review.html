@@ -159,6 +159,19 @@
     }).then(function(r){ return r.json(); });
   }
 
+  function sbInsert(table, data) {
+    return fetch(SB_URL + '/rest/v1/' + table, {
+      method: 'POST',
+      headers: {
+        apikey: SB_KEY,
+        Authorization: 'Bearer ' + SB_KEY,
+        'Content-Type': 'application/json',
+        Prefer: 'return=minimal'
+      },
+      body: JSON.stringify(data)
+    });
+  }
+
   function sbPatch(table, filter, data) {
     return fetch(SB_URL + '/rest/v1/' + table + '?' + filter, {
       method: 'PATCH',
@@ -327,7 +340,11 @@
   }
 
   async function submitReviews() {
-    var reviewerName = document.getElementById('reviewer-name').value.trim() || 'Revisor';
+    var reviewerName = document.getElementById('reviewer-name').value.trim();
+    if(!reviewerName){
+      alert('Por favor escribe tu nombre antes de enviar.');
+      return;
+    }
     var btn = document.getElementById('submit-btn');
     btn.disabled = true;
     btn.innerHTML = '<span>⏳</span> Enviando...';
@@ -340,25 +357,24 @@
       var rev = reviewData[id];
       if(!rev.estado) rev.estado = 'pendiente';
 
-      var notaFinal = rev.nota ? '[' + reviewerName + ']: ' + rev.nota : '[' + reviewerName + ']: Sin comentarios adicionales.';
-
       var isEmail = emailIds.indexOf(id) >= 0;
       var table   = isEmail ? 'cal_emails' : 'cal_posts';
       var pkField = isEmail ? 'email_id'   : 'post_id';
 
-      var data = {
-        revision_estado: rev.estado,
-        notas_revision:  notaFinal
-      };
-
-      // Also update post estado to 'en revisión' if not already reviewed
-      if(!isEmail && rev.estado === 'aprobado'){
-        data.estado = 'aprobado';
-      }
-
       try {
-        var r = await sbPatch(table, pkField + '=eq.' + encodeURIComponent(id), data);
-        if(!r.ok) errors++;
+        // 1. Insertar comentario en tabla de revisiones (acumulativo — no sobreescribe)
+        var row = {
+          revisor: reviewerName,
+          estado:  rev.estado,
+          nota:    rev.nota || ''
+        };
+        if(isEmail) row.email_id = id; else row.post_id = id;
+        var r1 = await sbInsert('cal_revisiones', row);
+        if(!r1.ok) { errors++; continue; }
+
+        // 2. Actualizar revision_estado en el post/email como caché para el pipeline
+        var r2 = await sbPatch(table, pkField + '=eq.' + encodeURIComponent(id), { revision_estado: rev.estado });
+        if(!r2.ok) errors++;
       } catch(e){ errors++; }
     }
 
