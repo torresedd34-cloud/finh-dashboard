@@ -6583,7 +6583,7 @@
       +'Te comparto el machote de revisión de contenido para la semana del '+fechaSemana+'.\n\n'
       +'Elementos incluidos ('+total+' en total):\n'+platLines.join('\n')+'\n\n'
       +'El archivo adjunto contiene el machote completo — ábrelo en el navegador e imprime como PDF si lo necesitas.\n\n'
-      +'Puedes dejar tus comentarios y aprobaciones directamente aquí (sin necesidad de cuenta):\n'+reviewUrl+'\n\n'
+      +'🔎 REVIEW FINH — Portal de revisión (sin necesidad de cuenta):\n'+reviewUrl+'\n\n'
       +'Por favor comparte tus comentarios a la brevedad.\n\n'
       +'Gracias,\nEduardo Torres\nFinh Soluciones Económicas\n(55) 6798 1672 | finh.mx';
 
@@ -7289,8 +7289,8 @@
   // =========================================================
   // CALENDARIO — 4to TAB: PIPELINE DE PRODUCCIÓN
   // =========================================================
-  var PIPE_COLS = ['idea','borrador','revision','programado','publicado'];
-  var PIPE_LABELS = { idea:'💡 Idea', borrador:'✏️ Borrador', revision:'🔍 Revisión', programado:'📅 Programado', publicado:'✅ Publicado' };
+  var PIPE_COLS = ['idea','borrador','revision','aprobado','programado','publicado'];
+  var PIPE_LABELS = { idea:'💡 Idea', borrador:'✏️ Borrador', revision:'🔍 Revisión', aprobado:'⭐ Aprobado', programado:'📅 Programado', publicado:'✅ Publicado' };
   var PIPE_DATA_DEFAULT = [
     { id:'cp1', titulo:'Hilo: Diferencias entre crédito y arrendamiento',    plat:'linkedin',  formato:'hilo',      col:'publicado',  fecha:'2026-06-06', notas:'' },
     { id:'cp2', titulo:'Thread: Proceso de solicitud en 60 segundos',        plat:'twitter',   formato:'hilo',      col:'publicado',  fecha:'2026-06-09', notas:'' },
@@ -7349,7 +7349,7 @@
   function pipeMove(id, dir) {
     var p = PIPE_DATA.find(function(x){ return x.id===id; }); if(!p) return;
     var i = PIPE_COLS.indexOf(p.col);
-    if(dir==='next'&&i<4) p.col=PIPE_COLS[i+1];
+    if(dir==='next'&&i<5) p.col=PIPE_COLS[i+1];
     if(dir==='prev'&&i>0) p.col=PIPE_COLS[i-1];
     pipeSaveLocal(); renderCalendario();
   }
@@ -7942,9 +7942,9 @@
 
   function pipeAprobar(id) {
     var p = PIPE_DATA.find(function(x){ return x.id===id; }); if(!p) return;
-    p.col = 'programado';
+    p.col = 'aprobado';
     PIPE_APROBACIONES.push({ id:id, accion:'aprobado', fecha: new Date().toISOString().slice(0,10), titulo:p.titulo });
-    activosShowToast('Contenido aprobado y movido a Programado');
+    activosShowToast('✅ Contenido aprobado');
     renderCalendario();
   }
   function pipeRechazar(id) {
@@ -7965,20 +7965,23 @@
     var platC = {linkedin:{bg:'#dbeafe',col:'#1d4ed8'}, twitter:{bg:'#e0f2fe',col:'#0284c7'}, facebook:{bg:'#ede9fe',col:'#6d28d9'}};
     var cols = PIPE_COLS.map(function(col){
       var cards = PIPE_DATA.filter(function(p){ return p.col===col; });
-      var colColor = {idea:'#6b7280',borrador:'#f59e0b',revision:'#3b82f6',programado:'#8b5cf6',publicado:'#10b981'}[col]||'#6b7280';
+      var colColor = {idea:'#6b7280',borrador:'#f59e0b',revision:'#3b82f6',aprobado:'#16a34a',programado:'#8b5cf6',publicado:'#10b981'}[col]||'#6b7280';
       var cardsHtml = cards.map(function(p){
         var pc = platC[p.plat]||{bg:'#f1f5f9',col:'#64748b'};
         var fmtIco = {hilo:'🧵',reel:'🎬',post:'📝',carrusel:'🖼',infografia:'📊',articulo:'📄',story:'⭕',video:'🎥'}[p.formato]||'📝';
         var prevBtn = PIPE_COLS.indexOf(col)>0 && col!=='revision' ? '<button onclick="pipeMove(\''+p.id+'\',\'prev\')" style="background:none;border:1px solid var(--border);border-radius:5px;padding:2px 6px;font-size:10px;cursor:pointer;color:var(--text-muted)">◀</button>' : '';
-        var nextBtn = PIPE_COLS.indexOf(col)<4 && col!=='revision' ? '<button onclick="pipeMove(\''+p.id+'\',\'next\')" style="background:none;border:1px solid '+colColor+';border-radius:5px;padding:2px 6px;font-size:10px;cursor:pointer;color:'+colColor+';font-weight:700">▶</button>' : '';
+        var nextBtn = PIPE_COLS.indexOf(col)<5 && col!=='revision' ? '<button onclick="pipeMove(\''+p.id+'\',\'next\')" style="background:none;border:1px solid '+colColor+';border-radius:5px;padding:2px 6px;font-size:10px;cursor:pointer;color:'+colColor+';font-weight:700">▶</button>' : '';
         var approvalBtns = col==='revision'
           ? '<div style="display:flex;gap:6px;margin-top:8px">'
             +'<button onclick="pipeAprobar(\''+p.id+'\')" style="flex:1;padding:5px 0;background:#dcfce7;border:none;border-radius:6px;cursor:pointer;font-size:11px;font-weight:700;color:#16a34a">✅ Aprobar</button>'
             +'<button onclick="pipeRechazar(\''+p.id+'\')" style="flex:1;padding:5px 0;background:#fee2e2;border:none;border-radius:6px;cursor:pointer;font-size:11px;font-weight:700;color:#dc2626">❌ Rechazar</button>'
             +'</div>'
           : '';
-        return '<div style="background:var(--card);border:1px solid '+(col==='revision'?'#3b82f6':'var(--border)')+';border-radius:10px;padding:12px;margin-bottom:8px'+(col==='revision'?';box-shadow:0 0 0 2px #bfdbfe':'')+'">'
-          +'<div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:6px;line-height:1.4">'+fmtIco+' '+esc(p.titulo)+'</div>'
+        var hasObs = col==='revision' && p.notas && p.notas.indexOf('Rechazado')!==0;
+        var cardBorder = col==='revision'?'#3b82f6':col==='aprobado'?'#86efac':'var(--border)';
+        var cardShadow = col==='revision'?';box-shadow:0 0 0 2px #bfdbfe':col==='aprobado'?';box-shadow:0 0 0 2px #bbf7d0':'';
+        return '<div style="background:var(--card);border:1px solid '+cardBorder+';border-radius:10px;padding:12px;margin-bottom:8px'+cardShadow+'">'
+          +'<div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:6px;line-height:1.4;display:flex;justify-content:space-between;align-items:flex-start;gap:6px"><span>'+fmtIco+' '+esc(p.titulo)+'</span>'+(hasObs?'<span style="background:#fee2e2;color:#dc2626;border-radius:4px;padding:1px 6px;font-size:10px;font-weight:700;white-space:nowrap;flex-shrink:0">🔴 Obs.</span>':'')+'</div>'
           +'<div style="display:flex;gap:5px;margin-bottom:8px;flex-wrap:wrap;align-items:center">'
           +'<span style="background:'+pc.bg+';color:'+pc.col+';border-radius:4px;padding:1px 7px;font-size:10px;font-weight:700">'+p.plat+'</span>'
           +'<span style="background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:1px 7px;font-size:10px;color:var(--text-muted)">'+p.formato+'</span>'
