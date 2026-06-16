@@ -2511,7 +2511,8 @@
           sbGet('cal_emails', 'select=*&order=fecha.asc,hora.asc'),
           sbGet('tendencias_historial', 'select=*&order=created_at.desc&limit=1'),
           sbGet('cal_revisiones', 'select=*&order=created_at.asc'),
-          sbGet('blog_articles', 'select=*&order=created_at.desc')
+          sbGet('blog_articles', 'select=*&order=created_at.desc'),
+          sbGet('seo_keywords', 'select=*&order=clicks.desc')
         ]);
         var leadsArr  = results[0] || [];
         var postsArr  = results[1] || [];
@@ -2519,8 +2520,31 @@
         var tendArr   = results[3] || [];
         var revArr    = results[4] || [];
         var blogArr   = results[5] || [];
+        var kwArr     = results[6] || [];
         if(Array.isArray(revArr))  CAL_REVISIONES = revArr;
         if(Array.isArray(blogArr) && blogArr.length) BLOG_DATA = blogArr;
+        if(Array.isArray(kwArr) && kwArr.length) {
+          SEO_KEYWORDS = kwArr.map(function(r){
+            return {
+              kw:     r.keyword,
+              pos:    r.posicion,
+              posAnt: r.posicion_anterior || r.posicion,
+              volumen:0,
+              dif:    r.posicion<=5?'baja':r.posicion<=15?'media':'alta',
+              pagina: r.pagina ? r.pagina.replace('https://','').replace(/\/$/,'') : 'finh.mx',
+              clicks: r.clicks,
+              imp:    r.impresiones,
+              ctr:    r.ctr,
+              fecha_corte: r.fecha_corte
+            };
+          });
+          // Recalcular métricas SEO reales
+          var totalClicks = kwArr.reduce(function(s,r){ return s+r.clicks; },0);
+          var totalImp    = kwArr.reduce(function(s,r){ return s+r.impresiones; },0);
+          var avgPos      = kwArr.length ? parseFloat((kwArr.reduce(function(s,r){ return s+r.posicion; },0)/kwArr.length).toFixed(1)) : 0;
+          var avgCtr      = totalImp ? parseFloat(((totalClicks/totalImp)*100).toFixed(1)) : 0;
+          SEO_METRICAS = { impresiones:totalImp, clicks:totalClicks, ctr:avgCtr, posPromedio:avgPos, pagesIndexadas:SEO_METRICAS.pagesIndexadas };
+        }
 
         state.leads   = leadsArr;
         state.updated = new Date();
@@ -8642,7 +8666,10 @@
             +'<td style="padding:10px 12px;color:var(--text-muted)">'+k.imp.toLocaleString()+'</td>'
             +'</tr>';
         }).join('')+'</tbody></table></div>'
-        +'<div style="margin-top:12px;padding:10px 14px;background:#fef3c7;border-radius:8px;font-size:11px;color:#d97706;font-weight:600">⚠️ Datos demo — conectar Search Console API vía n8n para posiciones en tiempo real.</div>';
+        +(SEO_KEYWORDS.length && SEO_KEYWORDS[0].fecha_corte
+          ? '<div style="margin-top:12px;padding:10px 14px;background:#f0fdf4;border-radius:8px;font-size:11px;color:#15803d;font-weight:600">✅ Datos reales de Google Search Console — última actualización: '+SEO_KEYWORDS[0].fecha_corte+' · '+SEO_KEYWORDS.length+' keywords</div>'
+          : '<div style="margin-top:12px;padding:10px 14px;background:#fef3c7;border-radius:8px;font-size:11px;color:#d97706;font-weight:600">⚠️ Datos demo — ejecuta el workflow n8n para cargar keywords reales.</div>'
+        );
 
     } else if (seoTab === 'competidores') {
       var kwFinh = SEO_KEYWORDS.map(function(k){ return k.kw.toLowerCase(); });
