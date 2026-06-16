@@ -3053,7 +3053,9 @@
       '</tr>';
     });
 
-    document.getElementById('leads-tbody').innerHTML = html;
+    var ltbody = document.getElementById('leads-tbody');
+    if (!ltbody) return;
+    ltbody.innerHTML = html;
 
     // Attach estado change events
     document.querySelectorAll('.estado-select').forEach(function(sel){
