@@ -2512,7 +2512,8 @@
           sbGet('tendencias_historial', 'select=*&order=created_at.desc&limit=1'),
           sbGet('cal_revisiones', 'select=*&order=created_at.asc'),
           sbGet('blog_articles', 'select=*&order=created_at.desc'),
-          sbGet('seo_keywords', 'select=*&order=clicks.desc')
+          sbGet('seo_keywords', 'select=*&order=clicks.desc'),
+          sbGet('seo_insights', 'select=*&order=created_at.desc&limit=1')
         ]);
         var leadsArr  = results[0] || [];
         var postsArr  = results[1] || [];
@@ -2520,8 +2521,10 @@
         var tendArr   = results[3] || [];
         var revArr    = results[4] || [];
         var blogArr   = results[5] || [];
-        var kwArr     = results[6] || [];
+        var kwArr       = results[6] || [];
+        var insightsArr = results[7] || [];
         if(Array.isArray(revArr))  CAL_REVISIONES = revArr;
+        if(Array.isArray(insightsArr) && insightsArr.length) SEO_INSIGHTS = insightsArr[0];
         if(Array.isArray(blogArr) && blogArr.length) BLOG_DATA = blogArr;
         if(Array.isArray(kwArr) && kwArr.length) {
           SEO_KEYWORDS = kwArr.map(function(r){
@@ -8589,12 +8592,13 @@
   ];
 
   var SEO_METRICAS = { impresiones:9590, clicks:1534, ctr:16.0, posPromedio:9.1, pagesIndexadas:24 };
+  var SEO_INSIGHTS = {};
 
   function renderSeo() {
     var root = document.getElementById('seo-root');
     if (!root) return;
 
-    var tabs = [['blog','📝 Pipeline Blog'],['keywords','🔑 Keywords GSC'],['competidores','🔍 Competidores'],['tecnico','⚙️ SEO Técnico']];
+    var tabs = [['blog','📝 Pipeline Blog'],['keywords','🔑 Keywords GSC'],['ia','🤖 IA Insights'],['competidores','🔍 Competidores'],['tecnico','⚙️ SEO Técnico']];
     var tabsHtml = '<div class="an-tabs" style="margin-bottom:20px;flex-wrap:wrap">'
       +tabs.map(function(t){ return '<button class="an-tab'+(seoTab===t[0]?' active':'')+'" onclick="seoSetTab(\''+t[0]+'\')" style="font-size:13px;padding:8px 16px">'+t[1]+'</button>'; }).join('')
       +'</div>';
@@ -8672,6 +8676,101 @@
           ? '<div style="margin-top:12px;padding:10px 14px;background:#f0fdf4;border-radius:8px;font-size:11px;color:#15803d;font-weight:600">✅ Datos reales de Google Search Console — última actualización: '+SEO_KEYWORDS[0].fecha_corte+' · '+SEO_KEYWORDS.length+' keywords</div>'
           : '<div style="margin-top:12px;padding:10px 14px;background:#fef3c7;border-radius:8px;font-size:11px;color:#d97706;font-weight:600">⚠️ Datos demo — ejecuta el workflow n8n para cargar keywords reales.</div>'
         );
+
+    } else if (seoTab === 'ia') {
+      var ins = SEO_INSIGHTS;
+      var tieneData = ins && (ins.resumen || (ins.quick_wins && ins.quick_wins.length));
+
+      if (!tieneData) {
+        body = '<div style="text-align:center;padding:60px 20px;color:var(--text-muted)">'
+          +'<div style="font-size:48px;margin-bottom:16px">🤖</div>'
+          +'<div style="font-size:16px;font-weight:700;margin-bottom:8px">Sin análisis IA todavía</div>'
+          +'<div style="font-size:13px">Ejecuta el workflow <b>Search Console a Supabase</b> en n8n para generar el primer análisis.</div>'
+          +'</div>';
+      } else {
+        var qw = ins.quick_wins || [];
+        var cl = ins.clusters || [];
+        var br = ins.brechas || [];
+        var art = ins.articulos_sugeridos || [];
+
+        body = '<div style="display:flex;flex-direction:column;gap:20px">';
+
+        // Resumen
+        if (ins.resumen) {
+          body += '<div style="padding:16px 20px;background:linear-gradient(135deg,#eff6ff,#f0fdf4);border-radius:12px;border-left:4px solid var(--accent)">'
+            +'<div style="font-size:11px;font-weight:800;color:var(--accent);margin-bottom:6px;text-transform:uppercase;letter-spacing:1px">💡 Resumen IA</div>'
+            +'<div style="font-size:14px;color:var(--text);line-height:1.6">'+esc(ins.resumen)+'</div>'
+            +(ins.fecha_corte?'<div style="font-size:11px;color:var(--text-muted);margin-top:8px">Análisis del '+ins.fecha_corte+'</div>':'')
+            +'</div>';
+        }
+
+        // Quick Wins + Artículos sugeridos (2 columnas)
+        body += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">';
+
+        // Quick Wins
+        body += '<div class="card" style="padding:16px">'
+          +'<div style="font-size:13px;font-weight:800;margin-bottom:14px">⚡ Quick Wins <span style="font-size:11px;font-weight:400;color:var(--text-muted)">(sube al top 3 con optimización)</span></div>'
+          +(qw.length ? qw.map(function(q){
+            var pCol = q.posicion<=5?'#10b981':q.posicion<=10?'#3b82f6':'#f59e0b';
+            var prioColor = q.prioridad==='alta'?'#ef4444':'#f59e0b';
+            return '<div style="padding:10px 12px;background:var(--bg);border-radius:8px;margin-bottom:8px;border-left:3px solid '+pCol+'">'
+              +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">'
+              +'<div style="font-size:12px;font-weight:700;color:var(--text)">'+esc(q.keyword)+'</div>'
+              +'<span style="font-size:10px;font-weight:800;color:'+pCol+'">Pos #'+q.posicion+'</span>'
+              +'</div>'
+              +'<div style="font-size:11px;color:var(--text-muted);margin-bottom:4px">'+esc(q.accion)+'</div>'
+              +(q.impresiones?'<div style="font-size:10px;color:#6b7280">👁 '+q.impresiones+' imp · <span style="color:'+prioColor+';font-weight:700">'+( q.prioridad||'media')+'</span></div>':'')
+              +'</div>';
+          }).join('') : '<div style="color:var(--text-muted);font-size:12px;padding:12px">Sin quick wins identificados.</div>')
+          +'</div>';
+
+        // Artículos sugeridos
+        body += '<div class="card" style="padding:16px">'
+          +'<div style="font-size:13px;font-weight:800;margin-bottom:14px">📝 Artículos sugeridos por IA</div>'
+          +(art.length ? art.map(function(a){
+            var urgColor = a.urgencia==='alta'?'#ef4444':'#f59e0b';
+            return '<div style="padding:10px 12px;background:var(--bg);border-radius:8px;margin-bottom:8px">'
+              +'<div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:4px">'+esc(a.titulo)+'</div>'
+              +'<div style="font-size:11px;color:var(--accent);margin-bottom:4px">🔑 '+esc(a.keyword_objetivo)+'</div>'
+              +'<div style="font-size:11px;color:var(--text-muted);margin-bottom:4px">'+esc(a.razon)+'</div>'
+              +(a.urgencia?'<span style="font-size:10px;font-weight:700;color:'+urgColor+'">● '+a.urgencia.toUpperCase()+'</span>':'')
+              +'</div>';
+          }).join('') : '<div style="color:var(--text-muted);font-size:12px;padding:12px">Sin artículos sugeridos.</div>')
+          +'</div>';
+
+        body += '</div>';
+
+        // Clusters + Brechas (2 columnas)
+        body += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">';
+
+        // Clusters
+        body += '<div class="card" style="padding:16px">'
+          +'<div style="font-size:13px;font-weight:800;margin-bottom:14px">🗂 Clusters de contenido</div>'
+          +(cl.length ? cl.map(function(c,i){
+            var colors=['#3b82f6','#10b981','#f59e0b','#8b5cf6'];
+            var col = colors[i%colors.length];
+            return '<div style="padding:10px 12px;background:var(--bg);border-radius:8px;margin-bottom:8px;border-left:3px solid '+col+'">'
+              +'<div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:4px">'+esc(c.tema)+'</div>'
+              +(c.keywords&&c.keywords.length?'<div style="font-size:11px;color:var(--text-muted);margin-bottom:4px">'+c.keywords.map(function(k){return '<span style="background:'+col+'22;color:'+col+';border-radius:4px;padding:1px 6px;margin-right:4px;font-size:10px">'+esc(k)+'</span>';}).join('')+'</div>':'')
+              +(c.oportunidad?'<div style="font-size:11px;color:#6b7280">'+esc(c.oportunidad)+'</div>':'')
+              +'</div>';
+          }).join('') : '<div style="color:var(--text-muted);font-size:12px;padding:12px">Sin clusters identificados.</div>')
+          +'</div>';
+
+        // Brechas
+        body += '<div class="card" style="padding:16px">'
+          +'<div style="font-size:13px;font-weight:800;margin-bottom:14px">🕳 Brechas de contenido</div>'
+          +(br.length ? br.map(function(b){
+            return '<div style="padding:10px 12px;background:var(--bg);border-radius:8px;margin-bottom:8px;border-left:3px solid #ef4444">'
+              +'<div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:4px">'+esc(b.keyword)+'</div>'
+              +'<div style="font-size:11px;color:var(--text-muted);margin-bottom:4px">'+esc(b.oportunidad)+'</div>'
+              +(b.tipo_contenido?'<span style="font-size:10px;background:#fef2f2;color:#ef4444;border-radius:4px;padding:1px 8px;font-weight:700">'+esc(b.tipo_contenido)+'</span>':'')
+              +'</div>';
+          }).join('') : '<div style="color:var(--text-muted);font-size:12px;padding:12px">Sin brechas identificadas.</div>')
+          +'</div>';
+
+        body += '</div></div>';
+      }
 
     } else if (seoTab === 'competidores') {
       var kwFinh = SEO_KEYWORDS.map(function(k){ return k.kw.toLowerCase(); });
