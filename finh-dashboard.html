@@ -5831,7 +5831,7 @@
           +'<span style="font-size:11px;color:var(--text-muted)">'+e.segmento+'</span>'
           +(e.estado==='enviado'?'<span style="font-size:11px;color:var(--text-muted)">Apertura: <b>'+e.apertura+'%</b> · Clics: <b>'+e.clicks+'%</b></span>':'')
           +'</div></div>'
-          +'<div style="display:flex;gap:6px;align-items:center">'+(calState.multiSelect?'<button class="tarea-btn" onclick="calToggleEmail(\''+e.id+'\')" style="background:'+((calState.selectedEmails||[]).indexOf(e.id)>=0?'var(--accent)':'')+';color:'+((calState.selectedEmails||[]).indexOf(e.id)>=0?'#fff':'')+'">☑</button>':'')+'<button class="tarea-btn" onclick="calViewEmail(\''+e.id+'\')">Ver</button></div>'
+          +'<div style="display:flex;gap:6px;align-items:center">'+(calState.multiSelect?'<button class="tarea-btn" onclick="calToggleEmail(\''+e.id+'\')" style="background:'+((calState.selectedEmails||[]).indexOf(e.id)>=0?'var(--accent)':'')+';color:'+((calState.selectedEmails||[]).indexOf(e.id)>=0?'#fff':'')+'">☑</button>':'')+'<button class="tarea-btn" onclick="calViewEmail(\''+e.id+'\')">Ver</button><button class="tarea-btn" onclick="calDeleteEmail(\''+e.id+'\')" style="color:#ef4444;border-color:#fecaca" title="Eliminar email">🗑</button></div>'
           +'</div>';
       }).join('')
       +'</div>';
@@ -6016,6 +6016,7 @@
       // Footer
       +'<div style="padding:14px 24px;border-top:1px solid var(--border);display:flex;gap:8px;align-items:center">'
       +'<button onclick="calEmailExportPDF(\''+eid+'\')" style="padding:9px 16px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;border:1px solid var(--border);background:var(--bg);color:var(--text)">📄 Exportar PDF</button>'
+      +'<button onclick="calDeleteEmail(\''+eid+'\')" style="padding:9px 16px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;border:1px solid #fecaca;background:#fef2f2;color:#ef4444">🗑 Eliminar</button>'
       +'<div style="flex:1"></div>'
       +'<button onclick="document.getElementById(\'cal-email-modal\').remove()" style="padding:9px 18px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;border:1px solid var(--border);background:var(--bg);color:var(--text)">Cancelar</button>'
       +'<button onclick="calSaveEmail(\''+eid+'\')" style="padding:9px 22px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;border:none;background:#1d4ed8;color:#fff">💾 Guardar</button>'
@@ -6086,6 +6087,18 @@
     document.getElementById('cal-email-modal').remove();
     activosShowToast('✅ Email guardado');
     renderCalendario();
+  }
+
+  async function calDeleteEmail(emailId){
+    if(!confirm('¿Eliminar este email permanentemente?')) return;
+    var ex=document.getElementById('cal-email-modal'); if(ex) ex.remove();
+    await fetch(SUPABASE_URL+'/rest/v1/cal_emails?email_id=eq.'+encodeURIComponent(emailId),{
+      method:'DELETE',
+      headers:{apikey:SUPABASE_KEY,Authorization:'Bearer '+SUPABASE_KEY,Prefer:'return=minimal'}
+    });
+    CAL_EMAIL_DATA = CAL_EMAIL_DATA.filter(function(e){ return (e.email_id||e.id)!==emailId; });
+    renderCalendario();
+    activosShowToast('🗑 Email eliminado');
   }
 
   function calEmailExportPDF(emailId){
@@ -7223,6 +7236,7 @@
   window.calToggleEmail        = calToggleEmail;
   window.calEnviarPorCorreo    = calEnviarPorCorreo;
   window.calClearRevision      = calClearRevision;
+  window.calDeleteEmail        = calDeleteEmail;
   window.calEmailExportPDF     = calEmailExportPDF;
   window.calPlatDefaults       = calPlatDefaults;
   window.calInitPlatDefaults   = calInitPlatDefaults;
