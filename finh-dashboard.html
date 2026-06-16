@@ -6593,13 +6593,6 @@
     });
     renderCalendario();
 
-    // ── 1. Descargar machote HTML ─────────────────────────────────────────────
-    var blob=new Blob([html],{type:'text/html;charset=utf-8'});
-    var dlUrl=URL.createObjectURL(blob);
-    var a=document.createElement('a'); a.href=dlUrl; a.download=fileName;
-    document.body.appendChild(a); a.click();
-    setTimeout(function(){ document.body.removeChild(a); URL.revokeObjectURL(dlUrl); },1000);
-
     // ── 2. Abrir correo prellenado vía mailto ────────────────────────────────
     var platLines=[];
     ['linkedin','twitter','facebook'].forEach(function(pl){
