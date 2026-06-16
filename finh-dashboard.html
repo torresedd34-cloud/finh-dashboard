@@ -2510,14 +2510,17 @@
           sbGet('cal_posts', 'select=*&order=fecha.asc,hora.asc'),
           sbGet('cal_emails', 'select=*&order=fecha.asc,hora.asc'),
           sbGet('tendencias_historial', 'select=*&order=created_at.desc&limit=1'),
-          sbGet('cal_revisiones', 'select=*&order=created_at.asc')
+          sbGet('cal_revisiones', 'select=*&order=created_at.asc'),
+          sbGet('blog_articles', 'select=*&order=created_at.desc')
         ]);
         var leadsArr  = results[0] || [];
         var postsArr  = results[1] || [];
         var emailsArr = results[2] || [];
         var tendArr   = results[3] || [];
         var revArr    = results[4] || [];
-        if(Array.isArray(revArr)) CAL_REVISIONES = revArr;
+        var blogArr   = results[5] || [];
+        if(Array.isArray(revArr))  CAL_REVISIONES = revArr;
+        if(Array.isArray(blogArr) && blogArr.length) BLOG_DATA = blogArr;
 
         state.leads   = leadsArr;
         state.updated = new Date();
@@ -3966,94 +3969,101 @@
   // =========================================================
   var monState = { filter: 'todos', search: '' };
 
-  // Datos demo de competidores — se reemplazarán con datos reales de n8n
+  // Datos demo de competidores — se reemplazarán con datos reales de n8n (scraping semanal)
   var MON_DEMO = [
     {
       id: 'konfio',
       nombre: 'Konfío',
-      url: 'https://konfio.mx',
+      url: 'https://konfio.mx/blog/',
       logo: '💳',
-      sector: 'SOFOM',
-      descripcion: 'Plataforma fintech de crédito empresarial para PyMEs en México.',
+      sector: 'SOFOM / Fintech',
+      descripcion: 'Plataforma fintech líder de crédito empresarial para PyMEs en México. Fuerte posicionamiento digital.',
       nivel_amenaza: 'alerta',
-      ultima_extraccion: '2026-06-09T10:30:00',
-      metricas: { publicaciones: 12, menciones: 34, keywords_en_comun: 8, cambios_web: 3 },
+      ultima_extraccion: '2026-06-14T10:30:00',
+      metricas: { publicaciones: 8, menciones: 34, keywords_en_comun: 9, cambios_web: 3 },
       publicaciones: [
-        { plataforma:'LinkedIn', fecha:'2026-06-08', texto:'Konfío lanza nueva línea de crédito revolvente hasta $5 MDP para PyMEs con facturación electrónica. Sin garantía inmueble, aprobación en 24 hrs.', likes:218, comentarios:41, compartidos:67, engagement:'alto' },
-        { plataforma:'Facebook', fecha:'2026-06-06', texto:'¿Necesitas capital de trabajo? Con Konfío obtienes hasta $5 MDP en 24 horas. Solo necesitas 2 años de operación y facturación electrónica.', likes:94, comentarios:18, compartidos:29, engagement:'medio' },
-        { plataforma:'Web',      fecha:'2026-06-05', texto:'Nueva landing page: "Crédito empresarial sin garantía hipotecaria" — targeting directo a palabras clave de Finh.', likes:0, comentarios:0, compartidos:0, engagement:'alto' }
+        { plataforma:'Blog', fecha:'2026-06-12', texto:'¿Qué es el capital de trabajo y cómo calcularlo para tu empresa? — guía práctica con ejemplos reales para PyMEs mexicanas.', likes:0, comentarios:0, compartidos:0, engagement:'alto' },
+        { plataforma:'Blog', fecha:'2026-06-08', texto:'Financiamiento PyME sin garantía hipotecaria: todo lo que debes saber antes de solicitarlo en 2026.', likes:0, comentarios:0, compartidos:0, engagement:'alto' },
+        { plataforma:'Blog', fecha:'2026-06-03', texto:'Cómo mejorar el flujo de caja de tu empresa en 5 pasos — estrategias para no quedarte sin liquidez.', likes:0, comentarios:0, compartidos:0, engagement:'medio' }
       ],
-      seo: { keywords: ['crédito empresarial PyME','financiamiento sin garantía','préstamo empresarial México'], posicion_promedio: 3.2, trafico_estimado: '45k/mes' },
+      seo: { keywords: ['capital de trabajo PyME','crédito empresarial sin garantía','financiamiento PyME México','flujo de caja empresa'], posicion_promedio: 3.2, trafico_estimado: '48k/mes' },
       insights: [
-        { icono:'🚨', texto:'<strong>Alerta:</strong> Konfío lanzó nueva línea de crédito sin garantía inmueble — diferenciador que Finh debe comunicar proactivamente.' },
-        { icono:'📢', texto:'Aumentó frecuencia de publicación en LinkedIn a 4 posts/semana — enfoque en testimoniales de clientes PyME.' },
-        { icono:'🔍', texto:'Posicionando fuertemente en "crédito para PyMEs sin garantía" — <strong>keyword de alto impacto para Finh</strong>.' },
-        { icono:'💡', texto:'Su propuesta de valor enfatiza velocidad (24 hrs). Finh puede contrarrestar con monto mayor ($2M+) y garantía de activos.' }
+        { icono:'🚨', texto:'<strong>Alerta:</strong> Publicando contenido educativo de alta frecuencia (2+ artículos/semana) — agresivo en SEO de keywords que Finh apunta.' },
+        { icono:'📢', texto:'Enfoque editorial en pain points financieros básicos (flujo de caja, capital de trabajo) — captura empresas en etapa temprana de búsqueda.' },
+        { icono:'🔍', texto:'Posicionando en "financiamiento PyME sin garantía" — <strong>keyword directamente competitiva con Finh</strong>.' },
+        { icono:'💡', texto:'Finh puede diferenciarse con contenido de arrendamiento puro — nicho que Konfío no cubre en su blog.' }
       ],
       notas: ''
     },
     {
-      id: 'cial_dun',
-      nombre: 'CIAL Dun & Bradstreet',
-      url: 'https://cialdnb.com',
-      logo: '📊',
-      sector: 'SOFOM',
-      descripcion: 'Análisis de crédito empresarial y financiamiento B2B para corporativos.',
+      id: 'bienparabien',
+      nombre: 'Bien Para Bien',
+      url: 'https://bienparabien.com/blog/',
+      logo: '🤝',
+      sector: 'SOFOM / Crédito',
+      descripcion: 'SOFOM enfocada en crédito con garantía prendaria (oro, joyas) y crédito personal/PyME.',
       nivel_amenaza: 'activo',
-      ultima_extraccion: '2026-06-09T09:15:00',
-      metricas: { publicaciones: 6, menciones: 19, keywords_en_comun: 5, cambios_web: 1 },
+      ultima_extraccion: '2026-06-14T09:00:00',
+      metricas: { publicaciones: 5, menciones: 18, keywords_en_comun: 4, cambios_web: 1 },
       publicaciones: [
-        { plataforma:'LinkedIn', fecha:'2026-06-07', texto:'El 67% de las PyMEs mexicanas que solicitan financiamiento son rechazadas por no tener historial crediticio estructurado. Conoce cómo CIAL soluciona esto.', likes:312, comentarios:58, compartidos:103, engagement:'alto' },
-        { plataforma:'Web',      fecha:'2026-06-04', texto:'Publicaron whitepaper: "Cómo calificar para crédito empresarial en México 2026" — lead magnet en su sitio.', likes:0, comentarios:0, compartidos:0, engagement:'medio' }
+        { plataforma:'Blog', fecha:'2026-06-10', texto:'Diferencia entre SOFOM regulada y no regulada: ¿cuál te conviene para obtener financiamiento?', likes:0, comentarios:0, compartidos:0, engagement:'alto' },
+        { plataforma:'Blog', fecha:'2026-06-05', texto:'Crédito para microempresarios: requisitos mínimos y cómo preparar tu expediente en México 2026.', likes:0, comentarios:0, compartidos:0, engagement:'medio' },
+        { plataforma:'Blog', fecha:'2026-05-29', texto:'Tasas de interés para PyMEs: comparativa de las principales SOFOM en México.', likes:0, comentarios:0, compartidos:0, engagement:'alto' }
       ],
-      seo: { keywords: ['historial crediticio empresarial','calificación crediticia PyME','financiamiento corporativo'], posicion_promedio: 5.8, trafico_estimado: '22k/mes' },
+      seo: { keywords: ['SOFOM regulada México','crédito microempresarios','tasas interés PyME SOFOM','financiamiento prendario'], posicion_promedio: 6.4, trafico_estimado: '19k/mes' },
       insights: [
-        { icono:'📄', texto:'Publicaron whitepaper como lead magnet — estrategia de contenido educativo efectiva para el segmento B2B.' },
-        { icono:'📈', texto:'Su contenido en LinkedIn sobre <strong>"rechazo de crédito"</strong> genera alto engagement — el pain point resuena mucho.' },
-        { icono:'💡', texto:'Oportunidad para Finh: crear contenido similar sobre criterios de calificación y proceso de aprobación.' }
+        { icono:'📄', texto:'Publicaron comparativa de tasas de SOFOM — contenido que posiciona como referente neutral y genera confianza.' },
+        { icono:'🎯', texto:'Se enfocan en microempresarios y crédito prendario — <strong>segmento diferente al de Finh</strong> (empresas medianas, arrendamiento).' },
+        { icono:'💡', texto:'Oportunidad: crear contenido comparativo arrendamiento vs crédito — educar al mercado donde Finh tiene ventaja.' },
+        { icono:'✅', texto:'Menor amenaza directa por diferencia de segmento, pero compiten en keywords genéricas de SOFOM.' }
       ],
       notas: ''
     },
     {
-      id: 'arrendamas',
-      nombre: 'Arrendamás',
-      url: 'https://arrendamas.mx',
-      logo: '🔧',
-      sector: 'arrendamiento',
-      descripcion: 'Arrendamiento puro de maquinaria y equipo industrial para empresas.',
+      id: 'grupocapem',
+      nombre: 'Grupo Capem',
+      url: 'https://grupocapem.com/noticias/',
+      logo: '🏗️',
+      sector: 'Arrendamiento / Capital',
+      descripcion: 'Grupo financiero con soluciones de arrendamiento puro, crédito empresarial y factoraje.',
       nivel_amenaza: 'activo',
-      ultima_extraccion: '2026-06-08T16:00:00',
-      metricas: { publicaciones: 9, menciones: 11, keywords_en_comun: 6, cambios_web: 2 },
+      ultima_extraccion: '2026-06-13T16:00:00',
+      metricas: { publicaciones: 4, menciones: 12, keywords_en_comun: 7, cambios_web: 2 },
       publicaciones: [
-        { plataforma:'Facebook', fecha:'2026-06-08', texto:'¡Renueva tu flota sin descapitalizarte! Arrendamiento puro de vehículos de carga desde $800k. Entrega en 5 días hábiles.', likes:76, comentarios:14, compartidos:22, engagement:'medio' },
-        { plataforma:'LinkedIn', fecha:'2026-06-06', texto:'Caso de éxito: empresa de logística incrementó su capacidad 40% con arrendamiento de 15 unidades — sin tocar su capital de trabajo.', likes:189, comentarios:33, compartidos:55, engagement:'alto' }
+        { plataforma:'Blog', fecha:'2026-06-11', texto:'Arrendamiento puro para equipo de construcción: ventajas fiscales y operativas para contratistas en México.', likes:0, comentarios:0, compartidos:0, engagement:'alto' },
+        { plataforma:'Blog', fecha:'2026-06-04', texto:'¿Qué es el factoraje financiero y cuándo conviene usarlo para tu empresa?', likes:0, comentarios:0, compartidos:0, engagement:'medio' },
+        { plataforma:'Blog', fecha:'2026-05-27', texto:'Cómo optimizar la deducción fiscal de arrendamiento puro en tu declaración anual 2026.', likes:0, comentarios:0, compartidos:0, engagement:'alto' }
       ],
-      seo: { keywords: ['arrendamiento de equipo','renta de maquinaria industrial','leasing equipo México'], posicion_promedio: 4.1, trafico_estimado: '18k/mes' },
+      seo: { keywords: ['arrendamiento puro equipo construcción','ventajas fiscales arrendamiento','factoraje financiero México','deducción arrendamiento SAT'], posicion_promedio: 5.1, trafico_estimado: '14k/mes' },
       insights: [
-        { icono:'🎯', texto:'Los <strong>casos de éxito en LinkedIn</strong> son su contenido de mayor engagement — Finh debería replicar este formato.' },
-        { icono:'⚠️', texto:'Compiten directamente en arrendamiento de activos >$1 MDP — monitorear ajustes de precio y plazos.' },
-        { icono:'💡', texto:'No hablan de financiamiento crédito — Finh tiene ventaja al ofrecer ambos productos (crédito + arrendamiento).' }
+        { icono:'⚠️', texto:'<strong>Competidor directo en arrendamiento puro</strong> — atacan keywords fiscales (deducción, SAT) que Finh debería cubrir en su blog.' },
+        { icono:'📊', texto:'Contenido enfocado en sectores específicos (construcción, equipo industrial) — estrategia sectorial efectiva.' },
+        { icono:'💡', texto:'Finh puede replicar enfoque sectorial: artículos de arrendamiento para salud, logística, tecnología.' },
+        { icono:'🔍', texto:'No tienen presencia fuerte en redes sociales — su fuerza es SEO y contenido de blog.' }
       ],
       notas: ''
     },
     {
-      id: 'unifin',
-      nombre: 'Unifin',
-      url: 'https://unifin.com.mx',
+      id: 'serfimex',
+      nombre: 'Serfimex Capital',
+      url: 'https://serfimexcapital.com.mx/blog/',
       logo: '🏦',
-      sector: 'arrendamiento',
-      descripcion: 'Arrendamiento financiero y crédito para empresas medianas y grandes.',
-      nivel_amenaza: 'estable',
-      ultima_extraccion: '2026-06-07T11:00:00',
-      metricas: { publicaciones: 4, menciones: 8, keywords_en_comun: 7, cambios_web: 0 },
+      sector: 'SOFOM / Arrendamiento',
+      descripcion: 'SOFOM ENR con productos de arrendamiento financiero, crédito simple y crédito revolvente para empresas.',
+      nivel_amenaza: 'activo',
+      ultima_extraccion: '2026-06-13T11:00:00',
+      metricas: { publicaciones: 3, menciones: 9, keywords_en_comun: 8, cambios_web: 1 },
       publicaciones: [
-        { plataforma:'LinkedIn', fecha:'2026-06-05', texto:'Unifin refuerza su oferta de arrendamiento financiero para empresas con facturación >$50 MDP. Tasas preferenciales para clientes con historial.', likes:143, comentarios:21, compartidos:38, engagement:'medio' }
+        { plataforma:'Blog', fecha:'2026-06-09', texto:'Arrendamiento financiero vs arrendamiento puro: diferencias clave para tomar la mejor decisión en tu empresa.', likes:0, comentarios:0, compartidos:0, engagement:'alto' },
+        { plataforma:'Blog', fecha:'2026-06-02', texto:'Requisitos para obtener crédito simple como empresa en México: guía paso a paso.', likes:0, comentarios:0, compartidos:0, engagement:'medio' },
+        { plataforma:'Blog', fecha:'2026-05-25', texto:'SOFOM ENR: regulación, ventajas y qué la diferencia de un banco tradicional.', likes:0, comentarios:0, compartidos:0, engagement:'alto' }
       ],
-      seo: { keywords: ['arrendamiento financiero','leasing empresarial','arrendamiento puro México'], posicion_promedio: 2.4, trafico_estimado: '61k/mes' },
+      seo: { keywords: ['arrendamiento financiero vs puro','crédito simple empresas México','SOFOM ENR requisitos','arrendamiento financiero PYME'], posicion_promedio: 7.3, trafico_estimado: '11k/mes' },
       insights: [
-        { icono:'📊', texto:'Unifin enfoca su oferta en empresas >$50 MDP — <strong>Finh puede ganar en el segmento $10-50 MDP</strong> que Unifin no atiende bien.' },
-        { icono:'✅', texto:'Actividad baja en redes sociales esta semana — sin amenaza inmediata en contenido.' },
-        { icono:'🔍', texto:'Posición SEO muy fuerte (#2 promedio) — referente del sector, difícil competir directamente en esas keywords.' }
+        { icono:'🔍', texto:'Publicaron comparativa arrendamiento financiero vs puro — <strong>mismo tema que Finh debe dominar</strong>, oportunidad de crear versión superior.' },
+        { icono:'📈', texto:'Menor tráfico estimado que Konfío — espacio para que Finh los supere con estrategia de contenido consistente.' },
+        { icono:'💡', texto:'Su keyword "SOFOM ENR requisitos" tiene bajo volumen pero alta intención comercial — Finh debería atacarla.' },
+        { icono:'✅', texto:'Blog poco frecuente (~1 artículo/semana) — Finh puede superar con 2+ artículos semanales.' }
       ],
       notas: ''
     }
@@ -7864,7 +7874,7 @@
   // =========================================================
   // CONVERSIÓN WEB
   // =========================================================
-  var convTab = 'landings';
+  var convTab = 'trafico';
 
   var CONV_LANDINGS = [
     { id:'lp1', nombre:'Arrendamiento Puro — PYMES',        url:'finh.mx/arrendamiento',    visitas:1240, leads:47, tasa:3.8, rebote:52, tiempo:'2:14', pixel:true,  activa:true,  notas:'Mejor rendimiento' },
@@ -7887,10 +7897,43 @@
     { red:'Google Tag Manager',id:'GTM-XXXXXX',    estado:'pendiente',eventos:['configurar triggers'],              ultima_senal:'no conectado',conversiones_sem:0  }
   ];
 
+  // GA4 demo data — se reemplaza con datos reales via n8n → Supabase
+  var CONV_GA4 = {
+    periodo: 'Jun 1–14, 2026',
+    sesiones: 8420, sesiones_ant: 7180,
+    usuarios: 6340, usuarios_ant: 5510,
+    nuevos_pct: 68,
+    rebote: 58.4, rebote_ant: 63.1,
+    duracion: '2:08', duracion_seg: 128,
+    conversiones: 122, conversiones_ant: 98,
+    tasa_conv: 1.45,
+    fuentes: [
+      { nombre:'Búsqueda orgánica', sesiones:3890, pct:46, color:'#10b981', icono:'🔍' },
+      { nombre:'Directo',           sesiones:1850, pct:22, color:'#3b82f6', icono:'🔗' },
+      { nombre:'Redes sociales',    sesiones:1430, pct:17, color:'#8b5cf6', icono:'📱' },
+      { nombre:'Email',             sesiones:756,  pct:9,  color:'#f59e0b', icono:'📧' },
+      { nombre:'Referidos',         sesiones:494,  pct:6,  color:'#ec4899', icono:'🌐' }
+    ],
+    paginas_top: [
+      { url:'finh.mx',                    titulo:'Home Principal',            visitas:3820, rebote:71, duracion:'0:58', conversiones:31 },
+      { url:'finh.mx/arrendamiento',      titulo:'Arrendamiento Puro',        visitas:1240, rebote:52, duracion:'2:14', conversiones:47 },
+      { url:'finh.mx/blog',               titulo:'Blog',                      visitas:980,  rebote:44, duracion:'2:51', conversiones:8  },
+      { url:'finh.mx/equipo-medico',      titulo:'Equipo Médico',             visitas:430,  rebote:45, duracion:'2:55', conversiones:18 },
+      { url:'finh.mx/credito',            titulo:'Crédito Empresarial',       visitas:890,  rebote:61, duracion:'1:48', conversiones:21 },
+      { url:'finh.mx/capital-trabajo',    titulo:'Capital de Trabajo',        visitas:210,  rebote:68, duracion:'1:22', conversiones:5  }
+    ],
+    semanal: [
+      { sem:'Jun 1', sesiones:1180 }, { sem:'Jun 2', sesiones:1050 },
+      { sem:'Jun 3', sesiones:980  }, { sem:'Jun 4', sesiones:1320 },
+      { sem:'Jun 5', sesiones:1490 }, { sem:'Jun 6', sesiones:1640 },
+      { sem:'Jun 7', sesiones:760  }
+    ]
+  };
+
   function renderConversion() {
     var root = document.getElementById('conversion-root');
     if (!root) return;
-    var tabs = [['landings','🏠 Landing Pages'],['abtest','🧪 Pruebas A/B'],['pixel','📡 Píxeles & Tracking']];
+    var tabs = [['trafico','📊 Tráfico Web'],['landings','🏠 Landing Pages'],['abtest','🧪 Pruebas A/B'],['pixel','📡 Píxeles & Tracking']];
     var tabsHtml = '<div class="an-tabs" style="margin-bottom:20px">'
       +tabs.map(function(t){ return '<button class="an-tab'+(convTab===t[0]?' active':'')+'" onclick="convSetTab(\''+t[0]+'\')" style="font-size:13px;padding:8px 16px">'+t[1]+'</button>'; }).join('')
       +'</div>';
@@ -7907,7 +7950,68 @@
       +'</div>';
 
     var body = '';
-    if (convTab === 'landings') {
+    if (convTab === 'trafico') {
+      function pctChange(v, a){ var d=v-a; var p=a?((d/a)*100).toFixed(0):0; return d>=0?'<span style="color:#10b981;font-size:11px;font-weight:700">▲'+p+'%</span>':'<span style="color:#ef4444;font-size:11px;font-weight:700">▼'+Math.abs(p)+'%</span>'; }
+      var g = CONV_GA4;
+      var maxSes = Math.max.apply(null, g.semanal.map(function(s){ return s.sesiones; }));
+      var barChart = '<div style="display:flex;align-items:flex-end;gap:6px;height:80px;margin-top:8px">'
+        +g.semanal.map(function(d){
+          var h = Math.round((d.sesiones/maxSes)*80);
+          return '<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px">'
+            +'<div style="width:100%;height:'+h+'px;background:linear-gradient(to top,#3b82f6,#93c5fd);border-radius:4px 4px 0 0" title="'+d.sesiones+' sesiones"></div>'
+            +'<div style="font-size:9px;color:var(--text-muted);white-space:nowrap">'+d.sem+'</div>'
+            +'</div>';
+        }).join('')
+        +'</div>';
+
+      var kpi4 = '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px">'
+        +'<div class="kpi-card" style="padding:14px"><div style="display:flex;justify-content:space-between;align-items:flex-start"><div class="kpi-value" style="font-size:22px">'+g.sesiones.toLocaleString()+'</div>'+pctChange(g.sesiones,g.sesiones_ant)+'</div><div class="kpi-label">Sesiones</div></div>'
+        +'<div class="kpi-card" style="padding:14px"><div style="display:flex;justify-content:space-between;align-items:flex-start"><div class="kpi-value" style="font-size:22px;color:#10b981">'+g.usuarios.toLocaleString()+'</div>'+pctChange(g.usuarios,g.usuarios_ant)+'</div><div class="kpi-label">Usuarios únicos</div></div>'
+        +'<div class="kpi-card" style="padding:14px"><div style="display:flex;justify-content:space-between;align-items:flex-start"><div class="kpi-value" style="font-size:22px;color:#f59e0b">'+g.rebote+'%</div>'+pctChange(g.rebote_ant,g.rebote)+'</div><div class="kpi-label">Tasa de rebote</div></div>'
+        +'<div class="kpi-card" style="padding:14px"><div style="display:flex;justify-content:space-between;align-items:flex-start"><div class="kpi-value" style="font-size:22px;color:#8b5cf6">'+g.conversiones+'</div>'+pctChange(g.conversiones,g.conversiones_ant)+'</div><div class="kpi-label">Conversiones</div></div>'
+        +'</div>';
+
+      var fuentesHtml = '<div style="display:flex;flex-direction:column;gap:8px">'
+        +g.fuentes.map(function(f){
+          return '<div style="display:flex;align-items:center;gap:12px">'
+            +'<div style="width:26px;text-align:center;font-size:14px">'+f.icono+'</div>'
+            +'<div style="width:160px;font-size:12px;font-weight:600;color:var(--text)">'+f.nombre+'</div>'
+            +'<div style="flex:1;background:var(--bg);border-radius:4px;height:8px"><div style="width:'+f.pct+'%;height:8px;background:'+f.color+';border-radius:4px"></div></div>'
+            +'<div style="width:50px;text-align:right;font-size:12px;font-weight:700;color:'+f.color+'">'+f.pct+'%</div>'
+            +'<div style="width:60px;text-align:right;font-size:11px;color:var(--text-muted)">'+f.sesiones.toLocaleString()+'</div>'
+            +'</div>';
+        }).join('')+'</div>';
+
+      body = kpi4
+        +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">'
+        +'<div class="camp-intel-card">'
+        +'<div style="font-size:13px;font-weight:700;margin-bottom:4px">Sesiones diarias — Jun 2026</div>'
+        +'<div style="font-size:11px;color:var(--text-muted);margin-bottom:12px">Período: '+g.periodo+' · '+g.nuevos_pct+'% usuarios nuevos · Duración promedio: '+g.duracion+'</div>'
+        +barChart+'</div>'
+        +'<div class="camp-intel-card">'
+        +'<div style="font-size:13px;font-weight:700;margin-bottom:12px">Fuentes de tráfico</div>'
+        +fuentesHtml+'</div></div>'
+        +'<div class="camp-intel-card" style="margin-top:16px">'
+        +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">'
+        +'<div style="font-size:13px;font-weight:700">Páginas con más tráfico</div>'
+        +'<span style="font-size:11px;color:var(--text-muted)">Datos: '+g.periodo+'</span></div>'
+        +'<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">'
+        +'<thead><tr style="border-bottom:2px solid var(--border)">'
+        +['Página','Visitas','Rebote','Duración','Conversiones'].map(function(h){ return '<th style="text-align:left;padding:8px 10px;font-size:11px;font-weight:700;color:var(--text-muted)">'+h+'</th>'; }).join('')
+        +'</tr></thead><tbody>'
+        +g.paginas_top.map(function(p){
+          var rb = p.rebote<=50?'#10b981':p.rebote<=65?'#f59e0b':'#ef4444';
+          return '<tr style="border-bottom:1px solid var(--border)">'
+            +'<td style="padding:10px"><div style="font-weight:600;font-size:12px">'+p.titulo+'</div><div style="font-size:10px;color:var(--accent)">'+p.url+'</div></td>'
+            +'<td style="padding:10px;font-weight:700">'+p.visitas.toLocaleString()+'</td>'
+            +'<td style="padding:10px"><span style="color:'+rb+';font-weight:700">'+p.rebote+'%</span></td>'
+            +'<td style="padding:10px;color:var(--text-muted)">'+p.duracion+'</td>'
+            +'<td style="padding:10px"><span style="color:#10b981;font-weight:700">'+p.conversiones+'</span></td>'
+            +'</tr>';
+        }).join('')+'</tbody></table></div></div>'
+        +'<div style="margin-top:12px;padding:10px 14px;background:#fef3c7;border-radius:8px;font-size:11px;color:#d97706;font-weight:600">⚠️ Datos demo — conectar GA4 API vía n8n para datos en tiempo real. <a href="#" onclick="switchView(\'config\')" style="color:#d97706;text-decoration:underline">Configurar conexión</a></div>';
+
+    } else if (convTab === 'landings') {
       body = '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">'
         +'<thead><tr style="border-bottom:2px solid var(--border)">'
         +['Landing Page','URL','Visitas','Leads','Conversión','Rebote','T. promedio','Píxel','Notas'].map(function(h){
@@ -8337,7 +8441,103 @@
   // =========================================================
   // SEO & BLOG
   // =========================================================
-  var seoTab = 'keywords';
+  var seoTab = 'blog';
+  var BLOG_DATA = []; // se llena desde Supabase; fallback a SEO_BLOG
+
+  async function loadBlogData() {
+    try {
+      var r = await sbGet('blog_articles','select=*&order=created_at.desc');
+      if (r && r.length) { BLOG_DATA = r; return; }
+    } catch(e) {}
+    BLOG_DATA = SEO_BLOG.map(function(a){ return Object.assign({article_id: a.id}, a); });
+  }
+
+  function blogGetCol(a) {
+    var e = a.estado||'idea';
+    if (e==='publicado') return 'publicado';
+    if (e==='aprobado')  return 'aprobado';
+    if (e==='revision')  return 'revision';
+    if (e==='en_redaccion') return 'en_redaccion';
+    return 'idea';
+  }
+
+  async function blogMoveCard(aid, dir) {
+    var cols = ['idea','en_redaccion','revision','aprobado','publicado'];
+    var a = BLOG_DATA.find(function(x){ return (x.article_id||x.id)===aid; }); if(!a) return;
+    var cur = blogGetCol(a);
+    var i = cols.indexOf(cur);
+    var next = dir==='next'&&i<cols.length-1 ? cols[i+1] : dir==='prev'&&i>0 ? cols[i-1] : null;
+    if(!next) return;
+    try { await sbPatch('blog_articles','article_id=eq.'+encodeURIComponent(aid),{estado:next}); } catch(e) {}
+    a.estado = next;
+    activosShowToast('Artículo movido a '+next.replace('_',' '));
+    renderSeo();
+  }
+
+  async function blogDeleteArticle(aid) {
+    if(!confirm('¿Eliminar este artículo?')) return;
+    try { await fetch(SUPABASE_URL+'/rest/v1/blog_articles?article_id=eq.'+encodeURIComponent(aid),{method:'DELETE',headers:{apikey:SUPABASE_KEY,Authorization:'Bearer '+SUPABASE_KEY,Prefer:'return=minimal'}}); } catch(e) {}
+    BLOG_DATA = BLOG_DATA.filter(function(x){ return (x.article_id||x.id)!==aid; });
+    activosShowToast('🗑 Artículo eliminado');
+    renderSeo();
+  }
+
+  function seoShowGenModal() {
+    var ex = document.getElementById('seo-gen-modal'); if(ex) ex.remove();
+    var tendOpts = '';
+    if (typeof TEND_DATA !== 'undefined' && TEND_DATA.length) {
+      tendOpts = '<div style="margin-bottom:14px"><div style="font-size:11px;font-weight:700;color:var(--text-muted);margin-bottom:6px">O elige desde Tendencias:</div>'
+        +'<div style="display:flex;flex-wrap:wrap;gap:6px">'
+        +TEND_DATA.slice(0,6).map(function(t){
+          return '<button onclick="document.getElementById(\'seo-gen-kw\').value=\''+esc((t.keyword||t.titulo||'').replace(/'/g,''))+'\'" style="padding:4px 10px;border-radius:6px;border:1px solid var(--border);background:var(--bg);font-size:11px;cursor:pointer">'+esc(t.keyword||t.titulo||'')+'</button>';
+        }).join('')+'</div></div>';
+    }
+    var modal = document.createElement('div');
+    modal.id = 'seo-gen-modal';
+    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:3000;display:flex;align-items:center;justify-content:center';
+    modal.innerHTML = '<div style="background:#fff;border-radius:16px;padding:28px 32px;width:520px;max-width:95vw;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.2)">'
+      +'<div style="font-size:17px;font-weight:800;margin-bottom:4px">🤖 Generar artículo con IA</div>'
+      +'<div style="font-size:12px;color:var(--text-muted);margin-bottom:20px">n8n + Groq genera un borrador completo y lo guarda en el pipeline.</div>'
+      +'<div style="margin-bottom:14px"><label style="font-size:12px;font-weight:700;display:block;margin-bottom:5px">Keyword objetivo *</label>'
+      +'<input id="seo-gen-kw" placeholder="ej. arrendamiento puro para PYMES México" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;outline:none"></div>'
+      +'<div style="margin-bottom:14px"><label style="font-size:12px;font-weight:700;display:block;margin-bottom:5px">Título sugerido (opcional)</label>'
+      +'<input id="seo-gen-titulo" placeholder="ej. Guía completa de arrendamiento puro para PYMES en México 2026" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;outline:none"></div>'
+      +'<div style="margin-bottom:20px"><label style="font-size:12px;font-weight:700;display:block;margin-bottom:5px">Enfoque / Ángulo</label>'
+      +'<select id="seo-gen-angulo" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;background:#fff">'
+      +'<option value="educativo">Educativo — explica el tema desde cero</option>'
+      +'<option value="comparativo">Comparativo — arrendamiento vs crédito</option>'
+      +'<option value="caso_exito">Caso de éxito — historia de cliente PyME</option>'
+      +'<option value="guia_practica">Guía práctica — paso a paso para el lector</option>'
+      +'<option value="sectorial">Sectorial — enfocado a un sector específico</option>'
+      +'</select></div>'
+      +tendOpts
+      +'<div style="display:flex;gap:10px;justify-content:flex-end">'
+      +'<button onclick="document.getElementById(\'seo-gen-modal\').remove()" style="padding:9px 18px;border-radius:8px;border:1px solid var(--border);background:var(--bg);font-size:13px;font-weight:600;cursor:pointer">Cancelar</button>'
+      +'<button onclick="seoGenerarArticulo()" style="padding:9px 20px;border-radius:8px;border:none;background:var(--accent);color:#fff;font-size:13px;font-weight:700;cursor:pointer">🚀 Generar borrador</button>'
+      +'</div></div>';
+    document.body.appendChild(modal);
+    modal.addEventListener('click',function(e){ if(e.target===modal) modal.remove(); });
+  }
+
+  async function seoGenerarArticulo() {
+    var kw = (document.getElementById('seo-gen-kw')||{}).value||'';
+    var titulo = (document.getElementById('seo-gen-titulo')||{}).value||'';
+    var angulo = (document.getElementById('seo-gen-angulo')||{}).value||'educativo';
+    if(!kw.trim()){ alert('Ingresa una keyword objetivo'); return; }
+    var modal = document.getElementById('seo-gen-modal');
+    if(modal) modal.remove();
+    activosShowToast('🤖 Generando artículo… (revisa el pipeline en unos minutos)');
+    var newArt = { article_id:'blog-gen-'+Date.now(), titulo: titulo||('Artículo sobre: '+kw), keyword:kw, estado:'en_redaccion', fecha:'', visitas:0, leads:0, posicion:null, notas:'Generado con IA · ángulo: '+angulo };
+    BLOG_DATA.unshift(newArt);
+    try {
+      await sbInsert('blog_articles',{ titulo:newArt.titulo, keyword:kw, estado:'en_redaccion', notas:newArt.notas });
+    } catch(e) {}
+    renderSeo();
+    // Opcional: disparar webhook n8n si está configurado
+    if (typeof N8N_WEBHOOK !== 'undefined' && N8N_WEBHOOK) {
+      try { fetch(N8N_WEBHOOK+'/blog-gen',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({keyword:kw,titulo:titulo,angulo:angulo})}); } catch(e) {}
+    }
+  }
 
   var SEO_KEYWORDS = [
     { kw:'arrendamiento puro PYMES Mexico',       pos:8,  posAnt:12, volumen:880,  dif:'media',  pagina:'finh.mx/arrendamiento',      clicks:142, imp:1240 },
@@ -8368,21 +8568,59 @@
     var root = document.getElementById('seo-root');
     if (!root) return;
 
-    var tabs = [['keywords','🔑 Keywords'],['blog','📝 Blog & Contenido'],['tecnico','⚙️ SEO Técnico']];
-    var tabsHtml = '<div class="an-tabs" style="margin-bottom:20px">'
+    var tabs = [['blog','📝 Pipeline Blog'],['keywords','🔑 Keywords GSC'],['competidores','🔍 Competidores'],['tecnico','⚙️ SEO Técnico']];
+    var tabsHtml = '<div class="an-tabs" style="margin-bottom:20px;flex-wrap:wrap">'
       +tabs.map(function(t){ return '<button class="an-tab'+(seoTab===t[0]?' active':'')+'" onclick="seoSetTab(\''+t[0]+'\')" style="font-size:13px;padding:8px 16px">'+t[1]+'</button>'; }).join('')
       +'</div>';
 
     var kpiHtml = '<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:20px">'
-      +'<div class="kpi-card" style="padding:12px 10px"><div class="kpi-value" style="font-size:22px">'+SEO_METRICAS.impresiones.toLocaleString()+'</div><div class="kpi-label">Impresiones</div></div>'
+      +'<div class="kpi-card" style="padding:12px 10px"><div class="kpi-value" style="font-size:22px">'+SEO_METRICAS.impresiones.toLocaleString()+'</div><div class="kpi-label">Impresiones GSC</div></div>'
       +'<div class="kpi-card" style="padding:12px 10px"><div class="kpi-value" style="font-size:22px;color:#3b82f6">'+SEO_METRICAS.clicks.toLocaleString()+'</div><div class="kpi-label">Clicks orgánicos</div></div>'
       +'<div class="kpi-card" style="padding:12px 10px"><div class="kpi-value" style="font-size:22px;color:#10b981">'+SEO_METRICAS.ctr+'%</div><div class="kpi-label">CTR promedio</div></div>'
       +'<div class="kpi-card" style="padding:12px 10px"><div class="kpi-value" style="font-size:22px;color:#f59e0b">'+SEO_METRICAS.posPromedio+'</div><div class="kpi-label">Posición promedio</div></div>'
-      +'<div class="kpi-card" style="padding:12px 10px"><div class="kpi-value" style="font-size:22px;color:#8b5cf6">'+SEO_METRICAS.pagesIndexadas+'</div><div class="kpi-label">Páginas indexadas</div></div>'
+      +'<div class="kpi-card" style="padding:12px 10px"><div class="kpi-value" style="font-size:22px;color:#8b5cf6">'+(BLOG_DATA.length||SEO_BLOG.length)+'</div><div class="kpi-label">Artículos totales</div></div>'
       +'</div>';
 
     var body = '';
-    if (seoTab === 'keywords') {
+
+    if (seoTab === 'blog') {
+      var blogCols = ['idea','en_redaccion','revision','aprobado','publicado'];
+      var blogColLabel = {idea:'💡 Idea',en_redaccion:'✍️ En redacción',revision:'👁 Revisión',aprobado:'✅ Aprobado',publicado:'🌐 Publicado'};
+      var blogColColor = {idea:'#6b7280',en_redaccion:'#3b82f6',revision:'#f59e0b',aprobado:'#10b981',publicado:'#8b5cf6'};
+      var source = BLOG_DATA.length ? BLOG_DATA : SEO_BLOG.map(function(a){ return Object.assign({article_id:a.id},a); });
+
+      body = '<div style="display:flex;justify-content:flex-end;margin-bottom:12px;gap:8px">'
+        +'<button onclick="seoNuevoArticulo()" style="padding:7px 14px;border-radius:8px;border:1px solid var(--border);background:var(--bg);font-size:12px;font-weight:700;cursor:pointer;color:var(--text)">+ Manual</button>'
+        +'<button onclick="seoShowGenModal()" style="background:var(--accent);color:#fff;border:none;border-radius:8px;padding:7px 16px;font-size:12px;font-weight:700;cursor:pointer">🤖 Generar con IA</button>'
+        +'</div>'
+        +'<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;overflow-x:auto">'
+        +blogCols.map(function(col){
+          var cards = source.filter(function(a){ return blogGetCol(a)===col; });
+          var colC = blogColColor[col];
+          return '<div style="background:var(--bg);border-radius:10px;padding:10px;min-height:200px">'
+            +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">'
+            +'<div style="font-size:11px;font-weight:800;color:'+colC+'">'+blogColLabel[col]+'</div>'
+            +'<div style="background:'+colC+'22;color:'+colC+';border-radius:10px;padding:1px 8px;font-size:11px;font-weight:800">'+cards.length+'</div>'
+            +'</div>'
+            +cards.map(function(a){
+              var aid = a.article_id||a.id;
+              var isFirst = blogCols.indexOf(col)===0;
+              var isLast  = blogCols.indexOf(col)===blogCols.length-1;
+              return '<div style="background:#fff;border-radius:8px;padding:10px;margin-bottom:8px;border:1px solid var(--border);font-size:11px">'
+                +'<div style="font-weight:700;line-height:1.3;margin-bottom:6px;color:var(--text)">'+esc(a.titulo)+'</div>'
+                +(a.keyword?'<div style="color:var(--accent);font-size:10px;margin-bottom:6px">🔑 '+esc(a.keyword)+'</div>':'')
+                +(a.fecha?'<div style="color:var(--text-muted);font-size:10px;margin-bottom:6px">📅 '+a.fecha+'</div>':'')
+                +(col==='publicado'?'<div style="display:flex;gap:8px;margin-bottom:6px"><span style="color:#6b7280">👁 <b style="color:var(--text)">'+(a.visitas||0)+'</b></span><span style="color:#6b7280">🎯 <b style="color:#10b981">'+(a.leads||0)+'</b></span>'+(a.posicion?'<span style="color:#6b7280">📊 <b style="color:#3b82f6">#'+a.posicion+'</b></span>':'')+'</div>':'')
+                +'<div style="display:flex;gap:4px;justify-content:flex-end">'
+                +(!isFirst?'<button onclick="blogMoveCard(\''+aid+'\',\'prev\')" title="Retroceder" style="padding:2px 7px;border-radius:5px;border:1px solid var(--border);background:var(--bg);cursor:pointer;font-size:11px">◀</button>':'')
+                +(!isLast?'<button onclick="blogMoveCard(\''+aid+'\',\'next\')" title="Avanzar" style="padding:2px 7px;border-radius:5px;border:1px solid var(--border);background:var(--bg);cursor:pointer;font-size:11px">▶</button>':'')
+                +'<button onclick="blogDeleteArticle(\''+aid+'\')" title="Eliminar" style="padding:2px 7px;border-radius:5px;border:1px solid #fecaca;background:#fef2f2;cursor:pointer;font-size:11px;color:#ef4444">🗑</button>'
+                +'</div></div>';
+            }).join('')
+            +'</div>';
+        }).join('')+'</div>';
+
+    } else if (seoTab === 'keywords') {
       body = '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">'
         +'<thead><tr style="border-bottom:2px solid var(--border)">'
         +['Keyword','Posición','Tendencia','Volumen','Dificultad','Página','Clicks','Impresiones'].map(function(h){
@@ -8403,49 +8641,62 @@
             +'<td style="padding:10px 12px;font-weight:700;color:#3b82f6">'+k.clicks+'</td>'
             +'<td style="padding:10px 12px;color:var(--text-muted)">'+k.imp.toLocaleString()+'</td>'
             +'</tr>';
-        }).join('')+'</tbody></table></div>';
+        }).join('')+'</tbody></table></div>'
+        +'<div style="margin-top:12px;padding:10px 14px;background:#fef3c7;border-radius:8px;font-size:11px;color:#d97706;font-weight:600">⚠️ Datos demo — conectar Search Console API vía n8n para posiciones en tiempo real.</div>';
 
-    } else if (seoTab === 'blog') {
-      var estadoCol = {publicado:'#10b981',borrador:'#6b7280',en_redaccion:'#3b82f6'};
-      body = '<div style="display:flex;flex-direction:column;gap:12px">'
-        +'<div style="display:flex;justify-content:flex-end;margin-bottom:4px">'
-        +'<button onclick="seoNuevoArticulo()" style="background:var(--accent);color:#fff;border:none;border-radius:8px;padding:7px 16px;font-size:12px;font-weight:700;cursor:pointer">+ Nuevo artículo</button>'
-        +'</div>'
-        +SEO_BLOG.map(function(a){
-          var ec = estadoCol[a.estado]||'#6b7280';
+    } else if (seoTab === 'competidores') {
+      var kwFinh = SEO_KEYWORDS.map(function(k){ return k.kw.toLowerCase(); });
+      body = '<div style="display:flex;flex-direction:column;gap:16px">'
+        +'<div style="padding:10px 14px;background:#eff6ff;border-radius:8px;font-size:12px;color:#1d4ed8;font-weight:600">🤖 Análisis actualizado semanalmente por n8n — scraping de blogs de competidores + análisis de keywords con IA.</div>'
+        +MON_DEMO.map(function(c){
+          var gapKws = c.seo.keywords.filter(function(k){ return !kwFinh.includes(k.toLowerCase()); });
           return '<div class="camp-intel-card">'
-            +'<div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px">'
-            +'<div style="flex:1;min-width:0">'
-            +'<div style="font-size:13px;font-weight:700;margin-bottom:4px">'+esc(a.titulo)+'</div>'
-            +'<div style="font-size:11px;color:var(--text-muted)">Keyword objetivo: <span style="color:var(--accent);font-weight:600">'+esc(a.keyword)+'</span></div>'
+            +'<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;flex-wrap:wrap;gap:8px">'
+            +'<div style="display:flex;align-items:center;gap:10px">'
+            +'<div style="font-size:22px">'+c.logo+'</div>'
+            +'<div><div style="font-size:14px;font-weight:800">'+esc(c.nombre)+'</div>'
+            +'<div style="font-size:11px;color:var(--text-muted)">'+esc(c.url)+' · Tráfico est: <b>'+c.seo.trafico_estimado+'</b> · Pos. prom: <b>#'+c.seo.posicion_promedio+'</b></div>'
+            +'</div></div>'
+            +'<span style="background:#f5f3ff;color:#7c3aed;border-radius:6px;padding:3px 10px;font-size:11px;font-weight:700">'+c.metricas.publicaciones+' artículos/mes</span>'
             +'</div>'
-            +'<div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end;flex-shrink:0">'
-            +'<span style="background:'+ec+'22;color:'+ec+';border-radius:5px;padding:2px 9px;font-size:11px;font-weight:700">'+a.estado.replace('_',' ')+'</span>'
-            +(a.fecha?'<span style="font-size:10px;color:var(--text-muted)">'+a.fecha+'</span>':'')
+            +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">'
+            +'<div>'
+            +'<div style="font-size:11px;font-weight:700;color:var(--text-muted);margin-bottom:8px">ÚLTIMAS PUBLICACIONES</div>'
+            +c.publicaciones.map(function(p){
+              return '<div style="padding:8px 10px;background:var(--bg);border-radius:7px;margin-bottom:6px;border-left:3px solid #e0e7ff">'
+                +'<div style="font-size:10px;color:var(--text-muted);margin-bottom:3px">'+p.fecha+'</div>'
+                +'<div style="font-size:11px;font-weight:600;line-height:1.4">'+esc(p.texto.substring(0,100))+(p.texto.length>100?'…':'')+'</div>'
+                +'</div>';
+            }).join('')
             +'</div>'
-            +'</div>'
-            +(a.estado==='publicado'?'<div style="display:flex;gap:16px;margin-top:10px;padding-top:10px;border-top:1px solid var(--border)">'
-              +'<span style="font-size:12px;color:var(--text-muted)">👁 <b style="color:var(--text)">'+a.visitas.toLocaleString()+'</b> visitas</span>'
-              +'<span style="font-size:12px;color:var(--text-muted)">🎯 <b style="color:#10b981">'+a.leads+'</b> leads</span>'
-              +(a.posicion?'<span style="font-size:12px;color:var(--text-muted)">📊 Posición <b style="color:#3b82f6">#'+a.posicion+'</b></span>':'')
-              +'</div>':'')
-            +'</div>';
+            +'<div>'
+            +'<div style="font-size:11px;font-weight:700;color:var(--text-muted);margin-bottom:8px">KEYWORDS QUE ATACAN</div>'
+            +'<div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:12px">'
+            +c.seo.keywords.map(function(k){
+              var esGap = !kwFinh.includes(k.toLowerCase());
+              return '<span style="padding:3px 9px;border-radius:5px;font-size:10px;font-weight:600;background:'+(esGap?'#fef3c7':'#f0fdf4')+';color:'+(esGap?'#d97706':'#16a34a')+';border:1px solid '+(esGap?'#fde68a':'#bbf7d0')+'">'+esc(k)+(esGap?' ⚠️':'')+'</span>';
+            }).join('')+'</div>'
+            +(gapKws.length?'<div style="padding:8px 10px;background:#fffbeb;border-radius:7px;border-left:3px solid #f59e0b"><div style="font-size:10px;font-weight:800;color:#d97706;margin-bottom:4px">GAP: Finh no cubre estas keywords</div>'
+              +gapKws.map(function(k){ return '<div style="font-size:11px;color:#d97706;font-weight:600">→ '+esc(k)+'</div>'; }).join('')
+              +'<button onclick="document.getElementById(\'seo-gen-kw\')&&(document.getElementById(\'seo-gen-kw\').value=\''+esc(gapKws[0])+'\')||true;seoSetTab(\'blog\');setTimeout(seoShowGenModal,100)" style="margin-top:6px;padding:3px 10px;border-radius:5px;border:none;background:#d97706;color:#fff;font-size:10px;font-weight:700;cursor:pointer">🤖 Generar artículo</button>'
+              +'</div>':'<div style="padding:8px 10px;background:#f0fdf4;border-radius:7px;font-size:11px;color:#16a34a;font-weight:600">✅ Finh cubre todas sus keywords</div>')
+            +'</div></div></div>';
         }).join('')+'</div>';
 
     } else {
       var checks = [
-        { item:'Meta titles únicos por página',         estado:'ok',      nota:'Todas las páginas principales tienen title único' },
-        { item:'Meta descriptions optimizadas',         estado:'ok',      nota:'5 de 7 páginas tienen meta description' },
-        { item:'Schema Markup (FinancialService)',       estado:'pendiente',nota:'Agregar JSON-LD schema para SOFOM — mejora rich snippets' },
-        { item:'Velocidad de carga <2s (mobile)',        estado:'alerta',  nota:'Home carga en 3.2s — optimizar imágenes y CSS crítico' },
-        { item:'Sitemap XML enviado a Google',           estado:'ok',      nota:'Última actualización 2026-06-08' },
-        { item:'Robots.txt configurado',                estado:'ok',      nota:'Sin páginas bloqueadas incorrectamente' },
-        { item:'SSL / HTTPS activo',                    estado:'ok',      nota:'Certificado válido hasta dic 2026' },
-        { item:'URLs canónicas configuradas',            estado:'pendiente',nota:'Falta canonical en páginas de blog' },
-        { item:'Core Web Vitals (LCP, CLS, FID)',        estado:'alerta',  nota:'LCP 4.1s — imagen principal sin lazy load' },
-        { item:'Google Search Console conectado',        estado:'ok',      nota:'Datos actualizados en tiempo real' },
-        { item:'Backlinks de calidad',                  estado:'pendiente',nota:'Solo 3 dominios enlazando — necesita link building' },
-        { item:'Alt text en imágenes',                  estado:'alerta',  nota:'60% de imágenes sin atributo alt' }
+        { item:'Meta titles únicos por página',        estado:'ok',       nota:'Todas las páginas principales tienen title único' },
+        { item:'Meta descriptions optimizadas',        estado:'ok',       nota:'5 de 7 páginas tienen meta description' },
+        { item:'Schema Markup (FinancialService)',      estado:'pendiente',nota:'Agregar JSON-LD schema para SOFOM — mejora rich snippets' },
+        { item:'Velocidad de carga <2s (mobile)',       estado:'alerta',   nota:'Home carga en 3.2s — optimizar imágenes y CSS crítico' },
+        { item:'Sitemap XML enviado a Google',          estado:'ok',       nota:'Última actualización 2026-06-08' },
+        { item:'Robots.txt configurado',               estado:'ok',       nota:'Sin páginas bloqueadas incorrectamente' },
+        { item:'SSL / HTTPS activo',                   estado:'ok',       nota:'Certificado válido hasta dic 2026' },
+        { item:'URLs canónicas configuradas',           estado:'pendiente',nota:'Falta canonical en páginas de blog' },
+        { item:'Core Web Vitals (LCP, CLS, FID)',       estado:'alerta',   nota:'LCP 4.1s — imagen principal sin lazy load' },
+        { item:'Google Search Console conectado',       estado:'ok',       nota:'Datos actualizados en tiempo real' },
+        { item:'Backlinks de calidad',                 estado:'pendiente',nota:'Solo 3 dominios enlazando — necesita link building' },
+        { item:'Alt text en imágenes',                 estado:'alerta',   nota:'60% de imágenes sin atributo alt' }
       ];
       var colMap = {ok:'#10b981',alerta:'#f59e0b',pendiente:'#ef4444'};
       var icoMap = {ok:'✅',alerta:'⚠️',pendiente:'❌'};
@@ -8462,14 +8713,13 @@
             +'<div><div style="font-size:12px;font-weight:700">'+esc(c.item)+'</div>'
             +'<div style="font-size:11px;color:var(--text-muted);margin-top:2px">'+esc(c.nota)+'</div></div>'
             +'</div>';
-        }).join('')
-        +'</div></div>';
+        }).join('')+'</div></div>';
     }
 
     root.innerHTML = '<div style="max-width:1100px">'
       +'<div class="section-header" style="flex-wrap:wrap;gap:10px">'
       +'<div class="section-title">SEO & Blog</div>'
-      +'<span style="background:#dbeafe;color:#1e40af;border-radius:6px;padding:3px 10px;font-size:11px;font-weight:700">Datos vía Google Search Console — conectar API para tiempo real</span>'
+      +'<span style="background:#dbeafe;color:#1e40af;border-radius:6px;padding:3px 10px;font-size:11px;font-weight:700">Search Console · n8n · Groq</span>'
       +'</div>'
       +kpiHtml+tabsHtml
       +'<div>'+body+'</div></div>';
@@ -8477,12 +8727,19 @@
 
   function seoSetTab(t){ seoTab=t; renderSeo(); }
   function seoNuevoArticulo(){
-    var t = prompt('Título del nuevo artículo:'); if(!t) return;
-    SEO_BLOG.push({ id:'b'+(SEO_BLOG.length+1), titulo:t, fecha:'', estado:'en_redaccion', visitas:0, leads:0, keyword:'', posicion:null });
+    var titulo = prompt('Título del artículo:'); if(!titulo) return;
+    var kw = prompt('Keyword objetivo (opcional):') || '';
+    var newA = { article_id:'b-'+(Date.now()), titulo:titulo, keyword:kw, estado:'idea', fecha:'', visitas:0, leads:0, posicion:null };
+    BLOG_DATA.unshift(newA);
+    try { sbInsert('blog_articles',{ titulo:titulo, keyword:kw, estado:'idea' }); } catch(e) {}
     renderSeo();
   }
-  window.seoSetTab        = seoSetTab;
-  window.seoNuevoArticulo = seoNuevoArticulo;
+  window.seoSetTab          = seoSetTab;
+  window.seoNuevoArticulo   = seoNuevoArticulo;
+  window.seoShowGenModal    = seoShowGenModal;
+  window.seoGenerarArticulo = seoGenerarArticulo;
+  window.blogMoveCard       = blogMoveCard;
+  window.blogDeleteArticle  = blogDeleteArticle;
 
   // =========================================================
   // REPORTES — PDF EJECUTIVO AUTO
