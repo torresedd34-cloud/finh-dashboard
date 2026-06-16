@@ -8025,21 +8025,44 @@
   window.pipeRechazar = pipeRechazar;
   window.loadData     = loadData;
 
-  // Pipeline usa CAL_DATA real de Supabase
+  // Pipeline usa CAL_DATA + CAL_EMAIL_DATA reales de Supabase
+  function pipeGetEmailCol(e) {
+    if(e.estado==='enviado') return 'publicado';
+    if(e.estado==='programado') return 'programado';
+    return 'borrador';
+  }
+  async function pipeEmailMove(eid, dir) {
+    var emailCols = ['borrador','programado','publicado'];
+    var e = CAL_EMAIL_DATA.find(function(x){ return (x.email_id||x.id)===eid; }); if(!e) return;
+    var cur = pipeGetEmailCol(e);
+    var i = emailCols.indexOf(cur);
+    var newColE = dir==='next'&&i<emailCols.length-1 ? emailCols[i+1] : dir==='prev'&&i>0 ? emailCols[i-1] : null;
+    if(!newColE) return;
+    var newEstado = newColE==='publicado' ? 'enviado' : newColE;
+    await sbPatch('cal_emails','email_id=eq.'+encodeURIComponent(eid),{estado:newEstado});
+    e.estado = newEstado;
+    activosShowToast('Email movido a '+newEstado);
+    renderCalendario();
+  }
+  window.pipeEmailMove = pipeEmailMove;
+
   calProduccionHTML = function() {
     var platC = {linkedin:{bg:'#dbeafe',col:'#1d4ed8'}, twitter:{bg:'#e0f2fe',col:'#0284c7'}, facebook:{bg:'#ede9fe',col:'#6d28d9'}};
     var colColor = {idea:'#6b7280',borrador:'#f59e0b',revision:'#3b82f6',aprobado:'#16a34a',rechazado:'#dc2626',programado:'#8b5cf6',publicado:'#10b981'};
     var colBorder = {revision:'#3b82f6',aprobado:'#86efac',rechazado:'#fca5a5'};
     var colShadow = {revision:';box-shadow:0 0 0 2px #bfdbfe',aprobado:';box-shadow:0 0 0 2px #bbf7d0',rechazado:';box-shadow:0 0 0 2px #fee2e2'};
 
-    // Filtrar posts reales (excluir eliminados)
     var allPosts = CAL_DATA.filter(function(p){ return p.estado !== 'eliminado'; });
+    var allEmails = (CAL_EMAIL_DATA||[]).filter(function(e){ return e.estado !== 'eliminado'; });
 
     var reloadBtn = '<button onclick="loadData()" title="Recargar desde Supabase" style="padding:5px 12px;border-radius:7px;border:1px solid var(--border);background:var(--card);font-size:11px;font-weight:700;cursor:pointer;color:var(--text-muted);margin-bottom:14px">🔄 Actualizar</button>';
 
     var cols = PIPE_COLS.map(function(col){
       var cards = allPosts.filter(function(p){ return pipeGetCol(p)===col; });
+      var emailCards = allEmails.filter(function(e){ return pipeGetEmailCol(e)===col; });
       var cc = colColor[col]||'#6b7280';
+
+      // Tarjetas de posts
       var cardsHtml = cards.map(function(p){
         var pid = p.post_id||p.id;
         var pc = platC[p.plat]||{bg:'#f1f5f9',col:'#64748b'};
@@ -8075,12 +8098,36 @@
           +(!noNavCols[col]?'<div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px"><div style="display:flex;gap:4px">'+prevBtn+nextBtn+'</div><button onclick="pipeDelete(\''+pid+'\')" style="background:none;border:none;cursor:pointer;font-size:11px;color:#ef4444;padding:0">🗑</button></div>':'')
           +'</div>';
       }).join('');
+
+      // Tarjetas de emails (visual distinto: fondo indigo suave)
+      var emailCardsHtml = emailCards.map(function(e){
+        var eid = e.email_id||e.id;
+        var emailCols = ['borrador','programado','publicado'];
+        var cur = pipeGetEmailCol(e);
+        var ei = emailCols.indexOf(cur);
+        var prevEmailBtn = ei>0 ? '<button onclick="pipeEmailMove(\''+eid+'\',\'prev\')" style="background:none;border:1px solid var(--border);border-radius:5px;padding:2px 6px;font-size:10px;cursor:pointer;color:var(--text-muted)">◀</button>' : '';
+        var nextEmailBtn = ei<emailCols.length-1 ? '<button onclick="pipeEmailMove(\''+eid+'\',\'next\')" style="background:none;border:1px solid #8b5cf6;border-radius:5px;padding:2px 6px;font-size:10px;cursor:pointer;color:#8b5cf6;font-weight:700">▶</button>' : '';
+        return '<div style="background:#f5f3ff;border:1px solid #ddd6fe;border-radius:10px;padding:12px;margin-bottom:8px">'
+          +'<div style="font-size:11px;font-weight:800;color:#7c3aed;margin-bottom:4px;letter-spacing:.03em">📧 EMAIL</div>'
+          +'<div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:6px;line-height:1.4">'+esc(e.asunto||'Sin asunto')+'</div>'
+          +'<div style="display:flex;gap:5px;margin-bottom:6px;flex-wrap:wrap;align-items:center">'
+          +'<span style="background:#ede9fe;color:#7c3aed;border-radius:4px;padding:1px 7px;font-size:10px;font-weight:700">'+(e.segmento||'leads')+'</span>'
+          +'<span style="font-size:10px;color:var(--text-muted);margin-left:auto">'+(e.fecha?e.fecha.slice(5).replace('-','/'):'')+'</span>'
+          +'</div>'
+          +'<div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px">'
+          +'<div style="display:flex;gap:4px">'+prevEmailBtn+nextEmailBtn+'</div>'
+          +'<button onclick="calViewEmail(\''+eid+'\')" style="background:none;border:1px solid #ddd6fe;border-radius:5px;padding:2px 8px;font-size:10px;cursor:pointer;color:#7c3aed;font-weight:600">Ver</button>'
+          +'</div>'
+          +'</div>';
+      }).join('');
+
+      var total = cards.length + emailCards.length;
       return '<div style="flex:0 0 200px;min-width:200px">'
         +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">'
         +'<div style="font-size:12px;font-weight:700;color:'+cc+'">'+PIPE_LABELS[col]+'</div>'
-        +'<span style="background:'+cc+'22;color:'+cc+';border-radius:20px;padding:1px 9px;font-size:11px;font-weight:700">'+cards.length+'</span>'
+        +'<span style="background:'+cc+'22;color:'+cc+';border-radius:20px;padding:1px 9px;font-size:11px;font-weight:700">'+total+'</span>'
         +'</div>'
-        +cardsHtml
+        +cardsHtml+emailCardsHtml
         +(col==='idea'?'<button onclick="pipeAddCard()" style="width:100%;padding:8px;background:none;border:2px dashed var(--border);border-radius:8px;cursor:pointer;font-size:12px;color:var(--text-muted);font-weight:600">+ Nueva idea</button>':'')
         +'</div>';
     }).join('');
