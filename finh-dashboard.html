@@ -2513,7 +2513,8 @@
           sbGet('cal_revisiones', 'select=*&order=created_at.asc'),
           sbGet('blog_articles', 'select=*&order=created_at.desc'),
           sbGet('seo_keywords', 'select=*&order=clicks.desc'),
-          sbGet('seo_insights', 'select=*&order=created_at.desc&limit=1')
+          sbGet('seo_insights', 'select=*&order=created_at.desc&limit=1'),
+          sbGet('web_metrics', 'select=*&order=created_at.desc&limit=1')
         ]);
         var leadsArr  = results[0] || [];
         var postsArr  = results[1] || [];
@@ -2525,6 +2526,35 @@
         var insightsArr = results[7] || [];
         if(Array.isArray(revArr))  CAL_REVISIONES = revArr;
         if(Array.isArray(insightsArr) && insightsArr.length) SEO_INSIGHTS = insightsArr[0];
+        var webArr = results[8] || [];
+        if(Array.isArray(webArr) && webArr.length) {
+          var wm = webArr[0];
+          var durSeg = wm.duracion_promedio || 0;
+          var durMin = Math.floor(durSeg/60);
+          var durS   = Math.round(durSeg % 60);
+          CONV_GA4.sesiones   = wm.sesiones || 0;
+          CONV_GA4.usuarios   = wm.usuarios || 0;
+          CONV_GA4.rebote     = wm.tasa_rebote || 0;
+          CONV_GA4.duracion   = durMin + ':' + String(durS).padStart(2,'0');
+          CONV_GA4.duracion_seg = durSeg;
+          CONV_GA4.paginas_vistas = wm.paginas_vistas || 0;
+          CONV_GA4.periodo    = 'Últimos 28 días · ' + (wm.fecha_corte || '');
+          CONV_GA4.fuentes    = (wm.fuentes || []).map(function(f){
+            var iconos = { 'Organic Search':'🔍','Direct':'🔗','Organic Social':'📱','Email':'📧','Referral':'🌐','Paid Search':'💰','(other)':'📊' };
+            var colores = { 'Organic Search':'#10b981','Direct':'#3b82f6','Organic Social':'#8b5cf6','Email':'#f59e0b','Referral':'#ec4899','Paid Search':'#ef4444','(other)':'#6b7280' };
+            var totalSes = CONV_GA4.sesiones || 1;
+            return {
+              nombre: f.canal, sesiones: f.sesiones,
+              pct: Math.round((f.sesiones/totalSes)*100),
+              color: colores[f.canal] || '#6b7280',
+              icono: iconos[f.canal] || '📊'
+            };
+          });
+          CONV_GA4.paginas_top = (wm.paginas_top || []).map(function(p){
+            return { url: 'finh.mx'+p.pagina, titulo: p.pagina, visitas: p.vistas, rebote: 0, duracion: Math.floor((p.duracion||0)/60)+':'+(Math.round((p.duracion||0)%60)).toString().padStart(2,'0'), conversiones: 0 };
+          });
+          CONV_GA4.desde_supabase = true;
+        }
         if(Array.isArray(blogArr) && blogArr.length) BLOG_DATA = blogArr;
         if(Array.isArray(kwArr) && kwArr.length) {
           SEO_KEYWORDS = kwArr.map(function(r){
@@ -8038,7 +8068,10 @@
             +'<td style="padding:10px"><span style="color:#10b981;font-weight:700">'+p.conversiones+'</span></td>'
             +'</tr>';
         }).join('')+'</tbody></table></div></div>'
-        +'<div style="margin-top:12px;padding:10px 14px;background:#fef3c7;border-radius:8px;font-size:11px;color:#d97706;font-weight:600">⚠️ Datos demo — conectar GA4 API vía n8n para datos en tiempo real. <a href="#" onclick="switchView(\'config\')" style="color:#d97706;text-decoration:underline">Configurar conexión</a></div>';
+        +(CONV_GA4.desde_supabase
+          ? '<div style="margin-top:12px;padding:10px 14px;background:#f0fdf4;border-radius:8px;font-size:11px;color:#15803d;font-weight:600">✅ Datos reales de Google Analytics 4 — '+CONV_GA4.periodo+'</div>'
+          : '<div style="margin-top:12px;padding:10px 14px;background:#fef3c7;border-radius:8px;font-size:11px;color:#d97706;font-weight:600">⚠️ Datos demo — ejecuta el workflow GA4 a Supabase en n8n para datos reales.</div>'
+        );
 
     } else if (convTab === 'landings') {
       body = '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">'
