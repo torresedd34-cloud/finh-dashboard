@@ -2514,7 +2514,8 @@
           sbGet('blog_articles', 'select=*&order=created_at.desc'),
           sbGet('seo_keywords', 'select=*&order=clicks.desc'),
           sbGet('seo_insights', 'select=*&order=created_at.desc&limit=1'),
-          sbGet('web_metrics', 'select=*&order=created_at.desc&limit=1')
+          sbGet('web_metrics', 'select=*&order=created_at.desc&limit=1'),
+          sbGet('competitor_posts', 'select=*&order=created_at.desc')
         ]);
         var leadsArr  = results[0] || [];
         var postsArr  = results[1] || [];
@@ -2555,6 +2556,39 @@
           });
           CONV_GA4.desde_supabase = true;
         }
+        // Competidores desde Supabase
+        var competArr = results[9] || [];
+        if (Array.isArray(competArr) && competArr.length) {
+          var nivelMap = { alto:'alerta', medio:'activo', bajo:'estable' };
+          var logoMap  = { 'Konfío':'🦁', 'Bien Para Bien':'🌱', 'Grupo Capem':'🏗️', 'Serfimex Capital':'💼', 'Xepelin':'⚡', 'Exitus Capital':'🚀', 'Kapital':'💡', 'Afirme':'🏦', 'Portafolio de Negocios':'📂' };
+          var sectorMap = { 'Konfío':'SOFOM / Fintech', 'Bien Para Bien':'SOFOM / Crédito', 'Grupo Capem':'Arrendamiento / Capital', 'Serfimex Capital':'SOFOM / Arrendamiento', 'Xepelin':'Factoraje Digital', 'Exitus Capital':'Crédito Empresarial', 'Kapital':'Crédito PyME Digital', 'Afirme':'Banco Empresarial', 'Portafolio de Negocios':'Crédito Empresarial' };
+          MON_REAL = competArr.map(function(r) {
+            var arts = Array.isArray(r.articulos) ? r.articulos : [];
+            var kws  = Array.isArray(r.keywords_objetivo) ? r.keywords_objetivo : [];
+            var ins  = Array.isArray(r.insights) ? r.insights : [];
+            var temas = Array.isArray(r.temas) ? r.temas : [];
+            return {
+              id: (r.competidor||'').toLowerCase().replace(/\s+/g,''),
+              nombre: r.competidor || '—',
+              url: r.url_blog || '#',
+              logo: logoMap[r.competidor] || '🏢',
+              sector: sectorMap[r.competidor] || r.competidor,
+              descripcion: r.razon_amenaza || (temas.length ? 'Temas: ' + temas.join(', ') : ''),
+              nivel_amenaza: nivelMap[r.nivel_amenaza] || 'activo',
+              ultima_extraccion: r.fecha_corte ? r.fecha_corte + 'T10:00:00' : new Date().toISOString(),
+              metricas: { publicaciones: arts.length, menciones: 0, keywords_en_comun: kws.length, cambios_web: 0 },
+              publicaciones: arts.map(function(a) {
+                return { plataforma:'Blog', fecha: (a.fecha||r.fecha_corte||'').slice(0,10), texto: a.titulo||'', url: a.url||'', likes:0, comentarios:0, compartidos:0, engagement:'medio' };
+              }),
+              seo: { keywords: kws, posicion_promedio: 0, trafico_estimado: '—' },
+              insights: ins.map(function(t){ return { icono:'💡', texto: String(t) }; })
+                         .concat(temas.map(function(t){ return { icono:'📌', texto:'Tema detectado: <strong>'+t+'</strong>' }; })),
+              notas: '',
+              desde_supabase: true
+            };
+          });
+        }
+
         if(Array.isArray(blogArr) && blogArr.length) BLOG_DATA = blogArr;
         if(Array.isArray(kwArr) && kwArr.length) {
           SEO_KEYWORDS = kwArr.map(function(r){
@@ -3592,19 +3626,20 @@
       +'</div>';
 
     // ── 6. MONITOR ────────────────────────────────────────────
-    var monAlert = MON_DEMO.filter(function(m){ return m.nivel_amenaza==='alerta'; });
-    var monRest  = MON_DEMO.filter(function(m){ return m.nivel_amenaza!=='alerta'; });
+    var monSrc   = MON_REAL.length ? MON_REAL : MON_DEMO;
+    var monAlert = monSrc.filter(function(m){ return m.nivel_amenaza==='alerta'; });
+    var monRest  = monSrc.filter(function(m){ return m.nivel_amenaza!=='alerta'; });
 
     var wMonitor = '<div style="background:var(--card);border:1px solid var(--border);border-radius:14px;padding:18px 20px">'
       +wHead('🔍 Monitor de Competencia', 'monitor', 'Ver monitor →')
       +'<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:16px">'
-      +miniStat(MON_DEMO.length, 'Competidores', 'var(--text)')
+      +miniStat(monSrc.length, 'Competidores', 'var(--text)')
       +miniStat(monAlert.length, 'En alerta', '#ef4444')
-      +miniStat(MON_DEMO.reduce(function(s,m){ return s+m.publicaciones.length; },0), 'Pubs. monitoreadas', 'var(--text)')
-      +miniStat('Hoy', 'Última extracción', '#10b981')
+      +miniStat(monSrc.reduce(function(s,m){ return s+(m.publicaciones||[]).length; },0), 'Artículos detectados', 'var(--text)')
+      +miniStat(MON_REAL.length ? (monSrc[0]&&monSrc[0].ultima_extraccion ? monSrc[0].ultima_extraccion.slice(0,10) : 'Esta semana') : 'Demo', 'Última extracción', '#10b981')
       +'</div>'
       +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">'
-      +MON_DEMO.slice(0,4).map(function(m){
+      +monSrc.slice(0,4).map(function(m){
         var isAlert = m.nivel_amenaza==='alerta';
         var borderCol = isAlert?'#ef4444':m.nivel_amenaza==='activo'?'#f59e0b':'#10b981';
         var insight = m.insights&&m.insights[0] ? m.insights[0].texto.replace(/<[^>]+>/g,'').slice(0,80)+'…' : m.descripcion.slice(0,80)+'…';
@@ -4027,8 +4062,9 @@
   // MONITOR DE COMPETENCIA
   // =========================================================
   var monState = { filter: 'todos', search: '' };
+  var MON_REAL = []; // se llena desde Supabase competitor_posts en loadData()
 
-  // Datos demo de competidores — se reemplazarán con datos reales de n8n (scraping semanal)
+  // Datos demo de competidores — fallback cuando aún no hay datos reales
   var MON_DEMO = [
     {
       id: 'konfio',
@@ -4141,28 +4177,28 @@
   }
 
   function monGetData() {
-    // En el futuro: leer de state.competidores (datos de n8n)
-    // Por ahora: demo data
-    var data = MON_DEMO;
+    var data = MON_REAL.length ? MON_REAL : MON_DEMO;
     if (monState.filter === 'alerta')        data = data.filter(function(c){ return c.nivel_amenaza === 'alerta'; });
-    else if (monState.filter === 'sofom')    data = data.filter(function(c){ return c.sector === 'SOFOM'; });
-    else if (monState.filter === 'arrendamiento') data = data.filter(function(c){ return c.sector === 'arrendamiento'; });
+    else if (monState.filter === 'sofom')    data = data.filter(function(c){ return (c.sector||'').toLowerCase().includes('sofom'); });
+    else if (monState.filter === 'arrendamiento') data = data.filter(function(c){ return (c.sector||'').toLowerCase().includes('arrendamiento'); });
     var q = monState.search.toLowerCase();
-    if (q) data = data.filter(function(c){ return c.nombre.toLowerCase().includes(q) || c.descripcion.toLowerCase().includes(q) || c.sector.toLowerCase().includes(q); });
+    if (q) data = data.filter(function(c){ return c.nombre.toLowerCase().includes(q) || (c.descripcion||'').toLowerCase().includes(q) || (c.sector||'').toLowerCase().includes(q); });
     return data;
   }
 
   function renderMonitor() {
     var data     = monGetData();
-    var alertas  = MON_DEMO.filter(function(c){ return c.nivel_amenaza === 'alerta'; }).length;
-    var totalPubs= MON_DEMO.reduce(function(s,c){ return s + c.publicaciones.length; }, 0);
+    var allData  = MON_REAL.length ? MON_REAL : MON_DEMO;
+    var alertas  = allData.filter(function(c){ return c.nivel_amenaza === 'alerta'; }).length;
+    var totalPubs= allData.reduce(function(s,c){ return s + (c.publicaciones||[]).length; }, 0);
+    var esReal   = MON_REAL.length > 0;
 
     // KPIs
     function setEl(id,v){ var e=document.getElementById(id); if(e) e.textContent=v; }
-    setEl('mon-kpi-total',   MON_DEMO.length);
+    setEl('mon-kpi-total',   allData.length);
     setEl('mon-kpi-reportes',totalPubs);
     setEl('mon-kpi-alertas', alertas);
-    setEl('mon-kpi-ultima',  'Hoy 10:30');
+    setEl('mon-kpi-ultima',  esReal ? (allData[0] && allData[0].ultima_extraccion ? allData[0].ultima_extraccion.slice(0,10) : 'Esta semana') : 'Demo');
     setEl('mon-count-label', data.length + ' competidor' + (data.length !== 1 ? 'es' : ''));
 
     var container = document.getElementById('mon-list');
@@ -4243,26 +4279,32 @@
     htmlDatos += '</div>';
 
     // --- Pane Publicaciones ---
-    var htmlPubs = '<div class="mon-demo-tag"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> Datos demo — el flujo n8n llenará esto automáticamente</div>';
+    var realBanner = '<div style="display:inline-flex;align-items:center;gap:6px;padding:5px 12px;background:rgba(22,163,74,0.1);border:1px solid rgba(22,163,74,0.3);border-radius:6px;font-size:11px;font-weight:700;color:#16a34a;margin-bottom:14px">✅ Datos reales — RSS scraping automático vía n8n</div>';
+    var demoBanner = '<div class="mon-demo-tag"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> Datos demo — el flujo n8n llenará esto automáticamente</div>';
+    var htmlPubs = c.desde_supabase ? realBanner : demoBanner;
     htmlPubs += '<div class="mon-pub-list">';
-    htmlPubs += c.publicaciones.map(function(p){
+    htmlPubs += (c.publicaciones||[]).map(function(p){
       var engClass = p.engagement === 'alto' ? 'high' : p.engagement === 'medio' ? 'med' : 'low';
       var engLabel = p.engagement === 'alto' ? '🔥 Alto' : p.engagement === 'medio' ? '⚡ Medio' : '💧 Bajo';
+      var fechaStr = p.fecha ? new Date(p.fecha+'T12:00:00').toLocaleDateString('es-MX',{day:'2-digit',month:'short',year:'numeric'}) : '—';
+      var titulo = p.url ? '<a href="'+esc(p.url)+'" target="_blank" style="color:var(--text);text-decoration:none" onmouseover="this.style.color=\'var(--accent)\'" onmouseout="this.style.color=\'var(--text)\'">'+esc(p.texto)+'</a>' : esc(p.texto);
       return '<div class="mon-pub-row ' + engClass + '">' +
         '<div class="mon-pub-meta">' +
           '<span class="mon-pub-platform">' + p.plataforma + '</span>' +
-          '<span class="mon-pub-date">' + new Date(p.fecha).toLocaleDateString('es-MX',{day:'2-digit',month:'short',year:'numeric'}) + '</span>' +
-          '<span class="mon-pub-eng">' + engLabel + '</span>' +
+          '<span class="mon-pub-date">' + fechaStr + '</span>' +
+          (c.desde_supabase ? '' : '<span class="mon-pub-eng">' + engLabel + '</span>') +
         '</div>' +
-        '<div class="mon-pub-text">' + esc(p.texto) + '</div>' +
+        '<div class="mon-pub-text">' + titulo + '</div>' +
         (p.likes > 0 ? '<div class="mon-pub-stats"><span>❤️ ' + p.likes + '</span><span>💬 ' + p.comentarios + '</span><span>🔁 ' + p.compartidos + '</span></div>' : '') +
       '</div>';
     }).join('');
     htmlPubs += '</div>';
-    htmlPubs += '<div class="mon-pending-cta"><h4>🤖 Conectar extracción automática</h4><p>El flujo de n8n extraerá publicaciones de LinkedIn, Facebook y el sitio web de cada competidor de forma programada.</p><div class="mon-pending-steps"><div class="mon-step"><div class="mon-step-num">Paso 1</div><div class="mon-step-text">Scraper de sitio web + RSS/blog del competidor</div></div><div class="mon-step"><div class="mon-step-num">Paso 2</div><div class="mon-step-text">Análisis con IA (Groq) de publicaciones recientes</div></div><div class="mon-step"><div class="mon-step-num">Paso 3</div><div class="mon-step-text">Guardar reporte en JSONBin + alerta Telegram</div></div></div></div>';
+    if (!c.desde_supabase) htmlPubs += '<div class="mon-pending-cta"><h4>🤖 Conectar extracción automática</h4><p>El flujo de n8n extraerá publicaciones de LinkedIn, Facebook y el sitio web de cada competidor de forma programada.</p><div class="mon-pending-steps"><div class="mon-step"><div class="mon-step-num">Paso 1</div><div class="mon-step-text">Scraper de sitio web + RSS/blog del competidor</div></div><div class="mon-step"><div class="mon-step-num">Paso 2</div><div class="mon-step-text">Análisis con IA (Groq) de publicaciones recientes</div></div><div class="mon-step"><div class="mon-step-num">Paso 3</div><div class="mon-step-text">Guardar reporte en JSONBin + alerta Telegram</div></div></div></div>';
 
     // --- Pane SEO ---
-    var htmlSEO = '<div class="mon-demo-tag"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> Datos demo — pendiente conectar n8n + herramienta SEO</div>';
+    var htmlSEO = c.desde_supabase
+      ? '<div style="display:inline-flex;align-items:center;gap:6px;padding:5px 12px;background:rgba(22,163,74,0.1);border:1px solid rgba(22,163,74,0.3);border-radius:6px;font-size:11px;font-weight:700;color:#16a34a;margin-bottom:14px">✅ Keywords detectadas por Groq desde artículos reales del blog</div>'
+      : '<div class="mon-demo-tag"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> Datos demo — pendiente conectar n8n + herramienta SEO</div>';
     htmlSEO += '<div class="mon-grid2">';
     htmlSEO += monField('Posición promedio en Google', '#' + c.seo.posicion_promedio);
     htmlSEO += monField('Tráfico estimado mensual',    c.seo.trafico_estimado);
@@ -4277,9 +4319,11 @@
     htmlSEO += '<div class="mon-pending-cta"><h4>🔍 Conectar análisis SEO automático</h4><p>Integra Ahrefs API o SerpAPI en el flujo n8n para extraer keywords, posiciones y backlinks de cada competidor semanalmente.</p><div class="mon-pending-steps"><div class="mon-step"><div class="mon-step-num">Opción A</div><div class="mon-step-text">SerpAPI — keywords y posiciones en Google</div></div><div class="mon-step"><div class="mon-step-num">Opción B</div><div class="mon-step-text">Ahrefs API — tráfico orgánico y backlinks</div></div><div class="mon-step"><div class="mon-step-num">Paso 3</div><div class="mon-step-text">Alerta si competidor sube en keywords de Finh</div></div></div></div>';
 
     // --- Pane Insights IA ---
-    var htmlInsights = '<div class="mon-demo-tag"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> Análisis generado por IA (Groq) — datos demo</div>';
+    var htmlInsights = c.desde_supabase
+      ? '<div style="display:inline-flex;align-items:center;gap:6px;padding:5px 12px;background:rgba(22,163,74,0.1);border:1px solid rgba(22,163,74,0.3);border-radius:6px;font-size:11px;font-weight:700;color:#16a34a;margin-bottom:14px">✅ Análisis real generado por Groq (Llama 3.3-70b)</div>'
+      : '<div class="mon-demo-tag"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> Análisis generado por IA (Groq) — datos demo</div>';
     htmlInsights += '<div class="mon-insight-list">';
-    htmlInsights += c.insights.map(function(ins){
+    htmlInsights += (c.insights||[]).map(function(ins){
       return '<div class="mon-insight-item"><div class="mon-insight-icon">'+ins.icono+'</div><div class="mon-insight-text">'+ins.texto+'</div></div>';
     }).join('');
     htmlInsights += '</div>';
@@ -8809,8 +8853,8 @@
       var kwFinh = SEO_KEYWORDS.map(function(k){ return k.kw.toLowerCase(); });
       body = '<div style="display:flex;flex-direction:column;gap:16px">'
         +'<div style="padding:10px 14px;background:#eff6ff;border-radius:8px;font-size:12px;color:#1d4ed8;font-weight:600">🤖 Análisis actualizado semanalmente por n8n — scraping de blogs de competidores + análisis de keywords con IA.</div>'
-        +MON_DEMO.map(function(c){
-          var gapKws = c.seo.keywords.filter(function(k){ return !kwFinh.includes(k.toLowerCase()); });
+        +(MON_REAL.length ? MON_REAL : MON_DEMO).map(function(c){
+          var gapKws = (c.seo&&c.seo.keywords||[]).filter(function(k){ return !kwFinh.includes(k.toLowerCase()); });
           return '<div class="camp-intel-card">'
             +'<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;flex-wrap:wrap;gap:8px">'
             +'<div style="display:flex;align-items:center;gap:10px">'
