@@ -2563,10 +2563,12 @@
           var logoMap  = { 'Konfío':'🦁', 'Bien Para Bien':'🌱', 'Grupo Capem':'🏗️', 'Serfimex Capital':'💼', 'Xepelin':'⚡', 'Exitus Capital':'🚀', 'Kapital':'💡', 'Afirme':'🏦', 'Portafolio de Negocios':'📂' };
           var sectorMap = { 'Konfío':'SOFOM / Fintech', 'Bien Para Bien':'SOFOM / Crédito', 'Grupo Capem':'Arrendamiento / Capital', 'Serfimex Capital':'SOFOM / Arrendamiento', 'Xepelin':'Factoraje Digital', 'Exitus Capital':'Crédito Empresarial', 'Kapital':'Crédito PyME Digital', 'Afirme':'Banco Empresarial', 'Portafolio de Negocios':'Crédito Empresarial' };
           MON_REAL = competArr.map(function(r) {
-            var arts = Array.isArray(r.articulos) ? r.articulos : [];
-            var kws  = Array.isArray(r.keywords_objetivo) ? r.keywords_objetivo : [];
-            var ins  = Array.isArray(r.insights) ? r.insights : [];
-            var temas = Array.isArray(r.temas) ? r.temas : [];
+            var arts     = Array.isArray(r.articulos) ? r.articulos : [];
+            var kws      = Array.isArray(r.keywords_objetivo) ? r.keywords_objetivo : [];
+            var ins      = Array.isArray(r.insights) ? r.insights : [];
+            var temas    = Array.isArray(r.temas) ? r.temas : [];
+            var artsDest = Array.isArray(r.articulos_destacados) ? r.articulos_destacados : [];
+            var opsFinh  = Array.isArray(r.oportunidades_finh) ? r.oportunidades_finh : [];
             return {
               id: (r.competidor||'').toLowerCase().replace(/\s+/g,''),
               nombre: r.competidor || '—',
@@ -2578,11 +2580,14 @@
               ultima_extraccion: r.fecha_corte ? r.fecha_corte + 'T10:00:00' : new Date().toISOString(),
               metricas: { publicaciones: arts.length, menciones: 0, keywords_en_comun: kws.length, cambios_web: 0 },
               publicaciones: arts.map(function(a) {
-                return { plataforma:'Blog', fecha: (a.fecha||r.fecha_corte||'').slice(0,10), texto: a.titulo||'', url: a.url||'', likes:0, comentarios:0, compartidos:0, engagement:'medio' };
+                var dest = artsDest.find(function(d){ return d.titulo && a.titulo && d.titulo.slice(0,30) === a.titulo.slice(0,30); });
+                return { plataforma:'Blog', fecha: (a.fecha||r.fecha_corte||'').slice(0,10), texto: a.titulo||'', url: a.url||'', likes:0, comentarios:0, compartidos:0, engagement: dest ? 'alto' : 'medio', por_que_importa: dest ? dest.por_que_importa : '' };
               }),
               seo: { keywords: kws, posicion_promedio: 0, trafico_estimado: '—' },
               insights: ins.map(function(t){ return { icono:'💡', texto: String(t) }; })
                          .concat(temas.map(function(t){ return { icono:'📌', texto:'Tema detectado: <strong>'+t+'</strong>' }; })),
+              oportunidades_finh: opsFinh,
+              articulos_destacados: artsDest,
               notas: '',
               desde_supabase: true
             };
@@ -4285,48 +4290,78 @@
     htmlPubs += '<div class="mon-pub-list">';
     htmlPubs += (c.publicaciones||[]).map(function(p){
       var engClass = p.engagement === 'alto' ? 'high' : p.engagement === 'medio' ? 'med' : 'low';
-      var engLabel = p.engagement === 'alto' ? '🔥 Alto' : p.engagement === 'medio' ? '⚡ Medio' : '💧 Bajo';
       var fechaStr = p.fecha ? new Date(p.fecha+'T12:00:00').toLocaleDateString('es-MX',{day:'2-digit',month:'short',year:'numeric'}) : '—';
-      var titulo = p.url ? '<a href="'+esc(p.url)+'" target="_blank" style="color:var(--text);text-decoration:none" onmouseover="this.style.color=\'var(--accent)\'" onmouseout="this.style.color=\'var(--text)\'">'+esc(p.texto)+'</a>' : esc(p.texto);
+      var titulo = p.url ? '<a href="'+esc(p.url)+'" target="_blank" style="color:var(--text);font-weight:600;text-decoration:none;line-height:1.5" onmouseover="this.style.color=\'var(--accent)\'" onmouseout="this.style.color=\'var(--text)\'">'+esc(p.texto)+' ↗</a>' : '<span style="font-weight:600">'+esc(p.texto)+'</span>';
+      var importa = p.por_que_importa ? '<div style="font-size:12px;color:var(--accent);margin-top:5px;font-style:italic">⚡ '+esc(p.por_que_importa)+'</div>' : '';
+      var destacado = p.engagement === 'alto' ? '<span style="font-size:10px;font-weight:700;background:rgba(233,69,96,0.1);color:var(--accent);padding:2px 7px;border-radius:4px;margin-left:6px">DESTACADO</span>' : '';
       return '<div class="mon-pub-row ' + engClass + '">' +
         '<div class="mon-pub-meta">' +
-          '<span class="mon-pub-platform">' + p.plataforma + '</span>' +
+          '<span class="mon-pub-platform">📝 Blog</span>' +
           '<span class="mon-pub-date">' + fechaStr + '</span>' +
-          (c.desde_supabase ? '' : '<span class="mon-pub-eng">' + engLabel + '</span>') +
+          destacado +
         '</div>' +
         '<div class="mon-pub-text">' + titulo + '</div>' +
-        (p.likes > 0 ? '<div class="mon-pub-stats"><span>❤️ ' + p.likes + '</span><span>💬 ' + p.comentarios + '</span><span>🔁 ' + p.compartidos + '</span></div>' : '') +
+        importa +
       '</div>';
     }).join('');
     htmlPubs += '</div>';
-    if (!c.desde_supabase) htmlPubs += '<div class="mon-pending-cta"><h4>🤖 Conectar extracción automática</h4><p>El flujo de n8n extraerá publicaciones de LinkedIn, Facebook y el sitio web de cada competidor de forma programada.</p><div class="mon-pending-steps"><div class="mon-step"><div class="mon-step-num">Paso 1</div><div class="mon-step-text">Scraper de sitio web + RSS/blog del competidor</div></div><div class="mon-step"><div class="mon-step-num">Paso 2</div><div class="mon-step-text">Análisis con IA (Groq) de publicaciones recientes</div></div><div class="mon-step"><div class="mon-step-num">Paso 3</div><div class="mon-step-text">Guardar reporte en JSONBin + alerta Telegram</div></div></div></div>';
+    if (!c.desde_supabase) htmlPubs += '<div class="mon-pending-cta"><h4>🤖 Conectar extracción automática</h4><p>El flujo de n8n extraerá publicaciones del blog de cada competidor de forma programada vía RSS.</p><div class="mon-pending-steps"><div class="mon-step"><div class="mon-step-num">Paso 1</div><div class="mon-step-text">RSS scraping semanal del blog</div></div><div class="mon-step"><div class="mon-step-num">Paso 2</div><div class="mon-step-text">Análisis con Groq (Llama 3.3-70b)</div></div><div class="mon-step"><div class="mon-step-num">Paso 3</div><div class="mon-step-text">Guardado en Supabase + alerta Telegram</div></div></div></div>';
 
     // --- Pane SEO ---
     var htmlSEO = c.desde_supabase
       ? '<div style="display:inline-flex;align-items:center;gap:6px;padding:5px 12px;background:rgba(22,163,74,0.1);border:1px solid rgba(22,163,74,0.3);border-radius:6px;font-size:11px;font-weight:700;color:#16a34a;margin-bottom:14px">✅ Keywords detectadas por Groq desde artículos reales del blog</div>'
       : '<div class="mon-demo-tag"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> Datos demo — pendiente conectar n8n + herramienta SEO</div>';
-    htmlSEO += '<div class="mon-grid2">';
-    htmlSEO += monField('Posición promedio en Google', '#' + c.seo.posicion_promedio);
-    htmlSEO += monField('Tráfico estimado mensual',    c.seo.trafico_estimado);
+    if (!c.desde_supabase) {
+      htmlSEO += '<div class="mon-grid2">';
+      htmlSEO += monField('Posición promedio en Google', '#' + c.seo.posicion_promedio);
+      htmlSEO += monField('Tráfico estimado mensual', c.seo.trafico_estimado);
+      htmlSEO += '</div>';
+    }
+    htmlSEO += '<div class="mon-section-title">Keywords que está atacando</div>';
+    var kwColors = ['#6366f1','#e94560','#10b981','#f59e0b','#3b82f6','#8b5cf6','#ec4899','#14b8a6'];
+    htmlSEO += '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px">';
+    htmlSEO += (c.seo.keywords||[]).map(function(k, ki){
+      var col = kwColors[ki % kwColors.length];
+      return '<span style="display:inline-flex;align-items:center;gap:5px;padding:6px 14px;background:'+col+'18;border:1.5px solid '+col+'40;border-radius:20px;font-size:12px;font-weight:600;color:'+col+'">🔑 '+esc(k)+'</span>';
+    }).join('');
     htmlSEO += '</div>';
-    htmlSEO += '<div class="mon-section-title">Keywords en común con Finh</div>';
-    htmlSEO += '<div class="mon-pub-list">' + c.seo.keywords.map(function(k, ki){
-      return '<div class="mon-pub-row" style="display:flex;align-items:center;gap:8px">' +
-        '<div class="an-rank ' + (ki === 0 ? 'top' : '') + '">' + (ki+1) + '</div>' +
-        '<span style="font-size:13px;font-weight:500;color:var(--text)">' + esc(k) + '</span>' +
-      '</div>';
-    }).join('') + '</div>';
-    htmlSEO += '<div class="mon-pending-cta"><h4>🔍 Conectar análisis SEO automático</h4><p>Integra Ahrefs API o SerpAPI en el flujo n8n para extraer keywords, posiciones y backlinks de cada competidor semanalmente.</p><div class="mon-pending-steps"><div class="mon-step"><div class="mon-step-num">Opción A</div><div class="mon-step-text">SerpAPI — keywords y posiciones en Google</div></div><div class="mon-step"><div class="mon-step-num">Opción B</div><div class="mon-step-text">Ahrefs API — tráfico orgánico y backlinks</div></div><div class="mon-step"><div class="mon-step-num">Paso 3</div><div class="mon-step-text">Alerta si competidor sube en keywords de Finh</div></div></div></div>';
+    if (c.desde_supabase) {
+      htmlSEO += '<div class="mon-section-title">Temas de contenido detectados</div>';
+      htmlSEO += '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px">';
+      var temasSEO = (c.insights||[]).filter(function(ins){ return ins.icono === '📌'; }).map(function(ins){ return ins.texto.replace('Tema detectado: <strong>','').replace('</strong>',''); });
+      htmlSEO += temasSEO.map(function(t){
+        return '<span style="padding:5px 12px;background:var(--bg2);border:1px solid var(--border);border-radius:6px;font-size:12px;font-weight:500;color:var(--text2)">📌 '+esc(t)+'</span>';
+      }).join('');
+      htmlSEO += '</div>';
+    } else {
+      htmlSEO += '<div class="mon-pending-cta"><h4>🔍 Conectar análisis SEO automático</h4><p>Integra Ahrefs API o SerpAPI en el flujo n8n para extraer keywords, posiciones y backlinks de cada competidor semanalmente.</p><div class="mon-pending-steps"><div class="mon-step"><div class="mon-step-num">Opción A</div><div class="mon-step-text">SerpAPI — keywords y posiciones en Google</div></div><div class="mon-step"><div class="mon-step-num">Opción B</div><div class="mon-step-text">Ahrefs API — tráfico orgánico y backlinks</div></div></div></div>';
+    }
 
     // --- Pane Insights IA ---
     var htmlInsights = c.desde_supabase
       ? '<div style="display:inline-flex;align-items:center;gap:6px;padding:5px 12px;background:rgba(22,163,74,0.1);border:1px solid rgba(22,163,74,0.3);border-radius:6px;font-size:11px;font-weight:700;color:#16a34a;margin-bottom:14px">✅ Análisis real generado por Groq (Llama 3.3-70b)</div>'
       : '<div class="mon-demo-tag"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> Análisis generado por IA (Groq) — datos demo</div>';
+    // Insights competitivos
+    var insightsSolo = (c.insights||[]).filter(function(ins){ return ins.icono !== '📌'; });
+    htmlInsights += '<div class="mon-section-title">Análisis competitivo</div>';
     htmlInsights += '<div class="mon-insight-list">';
-    htmlInsights += (c.insights||[]).map(function(ins){
+    htmlInsights += insightsSolo.map(function(ins){
       return '<div class="mon-insight-item"><div class="mon-insight-icon">'+ins.icono+'</div><div class="mon-insight-text">'+ins.texto+'</div></div>';
     }).join('');
     htmlInsights += '</div>';
+    // Oportunidades para Finh
+    var ops = c.oportunidades_finh || [];
+    if (ops.length) {
+      htmlInsights += '<div class="mon-section-title" style="color:#16a34a">🎯 Oportunidades para Finh</div>';
+      htmlInsights += '<div style="display:flex;flex-direction:column;gap:8px">';
+      htmlInsights += ops.map(function(op){
+        return '<div style="display:flex;align-items:flex-start;gap:10px;padding:12px 14px;background:rgba(22,163,74,0.06);border:1px solid rgba(22,163,74,0.2);border-radius:8px;border-left:3px solid #16a34a">'
+          +'<div style="font-size:18px;flex-shrink:0">🚀</div>'
+          +'<div style="font-size:13px;color:var(--text);line-height:1.6">'+esc(op)+'</div>'
+          +'</div>';
+      }).join('');
+      htmlInsights += '</div>';
+    }
 
     // --- Pane Notas ---
     var htmlNotas = '<div class="mon-section-title">📝 Notas internas sobre este competidor</div>';
