@@ -4116,6 +4116,35 @@
     if (st) { st.style.opacity='1'; setTimeout(function(){ st.style.opacity='0'; }, 2000); }
   }
 
+  function uploadCompLogo(id, input) {
+    var file = input.files[0];
+    if (!file) return;
+    var reader = new FileReader();
+    reader.onload = function(e) {
+      var b64 = e.target.result;
+      try { localStorage.setItem('comp_logo_' + id, b64); } catch(err) {}
+      // Actualizar preview en datos tab
+      var prev = document.getElementById('logo-preview-' + id);
+      if (prev) prev.innerHTML = '<img src="'+b64+'" style="width:40px;height:40px;border-radius:6px;object-fit:contain"/>';
+      // Actualizar logo en header de la card
+      var wrap = document.getElementById('logo-wrap-' + id);
+      if (wrap) wrap.innerHTML = '<img src="'+b64+'" style="width:36px;height:36px;border-radius:8px;object-fit:contain"/>';
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function removeCompLogo(id) {
+    try { localStorage.removeItem('comp_logo_' + id); } catch(e) {}
+    var prev = document.getElementById('logo-preview-' + id);
+    var wrap = document.getElementById('logo-wrap-' + id);
+    // Buscar el logo emoji del competidor en MON_REAL o MON_DEMO
+    var all = (MON_REAL.length ? MON_REAL : MON_DEMO);
+    var comp = all.find(function(c){ return c.id === id; });
+    var emoji = comp ? comp.logo : '🏢';
+    if (prev) prev.innerHTML = '<span style="font-size:24px">'+emoji+'</span>';
+    if (wrap) wrap.innerHTML = '<span style="font-size:22px">'+emoji+'</span>';
+  }
+
   // Datos demo de competidores — fallback cuando aún no hay datos reales
   var MON_DEMO = [
     {
@@ -4361,7 +4390,7 @@
     htmlPubs += '<div class="mon-pub-list">';
     htmlPubs += (c.publicaciones||[]).map(function(p){
       var engClass = p.engagement === 'alto' ? 'high' : p.engagement === 'medio' ? 'med' : 'low';
-      var fechaStr = p.fecha ? new Date(p.fecha+'T12:00:00').toLocaleDateString('es-MX',{day:'2-digit',month:'short',year:'numeric'}) : '—';
+      var fechaStr = (function(f){ if(!f) return '—'; var d=new Date(f); return isNaN(d.getTime()) ? f.slice(0,10) : d.toLocaleDateString('es-MX',{day:'2-digit',month:'short',year:'numeric'}); })(p.fecha);
       var titulo = p.url ? '<a href="'+esc(p.url)+'" target="_blank" style="color:var(--text);font-weight:600;text-decoration:none;line-height:1.5" onmouseover="this.style.color=\'var(--accent)\'" onmouseout="this.style.color=\'var(--text)\'">'+esc(p.texto)+' ↗</a>' : '<span style="font-weight:600">'+esc(p.texto)+'</span>';
       var importa = p.por_que_importa ? '<div style="font-size:12px;color:var(--accent);margin-top:5px;font-style:italic">⚡ '+esc(p.por_que_importa)+'</div>' : '';
       var destacado = p.engagement === 'alto' ? '<span style="font-size:10px;font-weight:700;background:rgba(233,69,96,0.1);color:var(--accent);padding:2px 7px;border-radius:4px;margin-left:6px">DESTACADO</span>' : '';
@@ -4440,10 +4469,25 @@
     htmlNotas += '<button class="mon-save-btn" data-mon-save="'+i+'">💾 Guardar nota</button>';
     htmlNotas += '<div id="mon-ns-'+i+'" style="font-size:13px;font-weight:600;margin-top:8px;min-height:20px"></div>';
 
+    // Logo: usar imagen subida si existe, si no el emoji
+    var storedLogo = null;
+    try { storedLogo = localStorage.getItem('comp_logo_' + c.id); } catch(e) {}
+    var logoDisplay = storedLogo
+      ? '<img src="'+storedLogo+'" style="width:36px;height:36px;border-radius:8px;object-fit:contain" />'
+      : '<span style="font-size:22px">'+c.logo+'</span>';
+
+    // Agregar campo de carga de logo al final de htmlDatos
+    htmlDatos += '<div class="mon-section-title" style="margin-top:16px">🖼️ Logo del competidor</div>';
+    htmlDatos += '<div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">';
+    htmlDatos += '<div id="logo-preview-'+c.id+'" style="width:48px;height:48px;display:flex;align-items:center;justify-content:center;background:var(--bg2);border:1px solid var(--border);border-radius:8px">'+(storedLogo ? '<img src="'+storedLogo+'" style="width:40px;height:40px;border-radius:6px;object-fit:contain"/>' : '<span style="font-size:24px">'+c.logo+'</span>')+'</div>';
+    htmlDatos += '<div><label style="display:inline-block;padding:7px 14px;background:var(--bg2);border:1px solid var(--border);border-radius:7px;font-size:12px;font-weight:600;color:var(--text2);cursor:pointer">📁 Subir imagen<input type="file" accept="image/*" style="display:none" onchange="uploadCompLogo(\''+c.id+'\',this)"/></label>';
+    if (storedLogo) htmlDatos += ' <button onclick="removeCompLogo(\''+c.id+'\')" style="padding:7px 12px;background:none;border:1px solid var(--border);border-radius:7px;font-size:12px;color:var(--text3);cursor:pointer">✕ Quitar</button>';
+    htmlDatos += '</div></div>';
+
     return '<div class="mon-card ' + amenazaClass + '">' +
       // Header
       '<div class="mon-header-card">' +
-        '<div class="mon-logo-wrap"><span style="font-size:22px">'+c.logo+'</span></div>' +
+        '<div class="mon-logo-wrap" id="logo-wrap-'+c.id+'">'+logoDisplay+'</div>' +
         '<div class="mon-info">' +
           '<div class="mon-comp-name">' + esc(c.nombre) + '</div>' +
           '<a class="mon-comp-url" href="'+c.url+'" target="_blank" onclick="event.stopPropagation()">'+c.url+'</a>' +
