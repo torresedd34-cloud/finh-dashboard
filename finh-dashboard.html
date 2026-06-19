@@ -4129,6 +4129,22 @@
       // Actualizar logo en header de la card
       var wrap = document.getElementById('logo-wrap-' + id);
       if (wrap) wrap.innerHTML = '<img src="'+b64+'" style="width:36px;height:36px;border-radius:8px;object-fit:contain"/>';
+      // Mostrar botón Quitar si aún no existe
+      var btnQuit = document.getElementById('logo-quit-' + id);
+      if (!btnQuit) {
+        var logoActions = document.getElementById('logo-actions-' + id);
+        if (logoActions) {
+          var btn = document.createElement('button');
+          btn.id = 'logo-quit-' + id;
+          btn.setAttribute('onclick', 'removeCompLogo("'+id+'")');
+          btn.style.cssText = 'padding:7px 12px;background:none;border:1px solid var(--border);border-radius:7px;font-size:12px;color:var(--text3);cursor:pointer';
+          btn.textContent = '✕ Quitar';
+          logoActions.appendChild(btn);
+        }
+      }
+      // Toast de confirmación
+      var saved = document.getElementById('logo-saved-' + id);
+      if (saved) { saved.style.opacity='1'; setTimeout(function(){ saved.style.opacity='0'; }, 2000); }
     };
     reader.readAsDataURL(file);
   }
@@ -4480,8 +4496,9 @@
     htmlDatos += '<div class="mon-section-title" style="margin-top:16px">🖼️ Logo del competidor</div>';
     htmlDatos += '<div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">';
     htmlDatos += '<div id="logo-preview-'+c.id+'" style="width:48px;height:48px;display:flex;align-items:center;justify-content:center;background:var(--bg2);border:1px solid var(--border);border-radius:8px">'+(storedLogo ? '<img src="'+storedLogo+'" style="width:40px;height:40px;border-radius:6px;object-fit:contain"/>' : '<span style="font-size:24px">'+c.logo+'</span>')+'</div>';
-    htmlDatos += '<div><label style="display:inline-block;padding:7px 14px;background:var(--bg2);border:1px solid var(--border);border-radius:7px;font-size:12px;font-weight:600;color:var(--text2);cursor:pointer">📁 Subir imagen<input type="file" accept="image/*" style="display:none" onchange="uploadCompLogo(\''+c.id+'\',this)"/></label>';
-    if (storedLogo) htmlDatos += ' <button onclick="removeCompLogo(\''+c.id+'\')" style="padding:7px 12px;background:none;border:1px solid var(--border);border-radius:7px;font-size:12px;color:var(--text3);cursor:pointer">✕ Quitar</button>';
+    htmlDatos += '<div id="logo-actions-'+c.id+'" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><label style="display:inline-block;padding:7px 14px;background:var(--bg2);border:1px solid var(--border);border-radius:7px;font-size:12px;font-weight:600;color:var(--text2);cursor:pointer">📁 Subir imagen<input type="file" accept="image/*" style="display:none" onchange="uploadCompLogo(\''+c.id+'\',this)"/></label>';
+    if (storedLogo) htmlDatos += '<button id="logo-quit-'+c.id+'" onclick="removeCompLogo(\''+c.id+'\')" style="padding:7px 12px;background:none;border:1px solid var(--border);border-radius:7px;font-size:12px;color:var(--text3);cursor:pointer">✕ Quitar</button>';
+    htmlDatos += '<span id="logo-saved-'+c.id+'" style="font-size:12px;color:#22c55e;font-weight:600;opacity:0;transition:opacity .4s">✓ Logo guardado</span>';
     htmlDatos += '</div></div>';
 
     return '<div class="mon-card ' + amenazaClass + '">' +
