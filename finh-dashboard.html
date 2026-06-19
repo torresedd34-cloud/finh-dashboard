@@ -4246,6 +4246,11 @@
     if (btnQuit) btnQuit.remove();
   }
 
+  // Exponer al scope global para que los onclick del HTML puedan llamarlas
+  window.saveCompProfile  = saveCompProfile;
+  window.uploadCompLogo   = uploadCompLogo;
+  window.removeCompLogo   = removeCompLogo;
+
   // Datos demo de competidores — fallback cuando aún no hay datos reales
   var MON_DEMO = [
     {
