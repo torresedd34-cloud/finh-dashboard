@@ -2597,6 +2597,16 @@
                          .concat(temas.map(function(t){ return { icono:'📌', texto:'Tema detectado: <strong>'+t+'</strong>' }; })),
               oportunidades_finh: opsFinh,
               articulos_destacados: artsDest,
+              perfil: {
+                productos:  r.productos  || '',
+                montos:     r.montos     || '',
+                plazos:     r.plazos     || '',
+                tasa:       r.tasa       || '',
+                garantia:   r.garantia   || '',
+                canales:    r.canales    || '',
+                estrategia: r.estrategia || ''
+              },
+              logo_base64: r.logo_base64 || null,
               notas: '',
               desde_supabase: true
             };
@@ -4104,31 +4114,63 @@
     return COMP_PROFILES_DEFAULT[id] || { productos:'', montos:'', plazos:'', tasa:'', garantia:'', canales:'', estrategia:'' };
   }
 
+  function _compNombre(id) {
+    var all = MON_REAL.length ? MON_REAL : MON_DEMO;
+    var c = all.find(function(x){ return x.id === id; });
+    return c ? (c.nombre || id) : id;
+  }
+
+  function _patchSupabase(nombre, payload, btn, okText, failText) {
+    var url = SUPABASE_URL + '/rest/v1/competitor_posts?competidor=eq.' + encodeURIComponent(nombre);
+    fetch(url, {
+      method: 'PATCH',
+      headers: Object.assign({}, SB_HEADERS, { 'Content-Type': 'application/json', 'Prefer': 'return=minimal' }),
+      body: JSON.stringify(payload)
+    }).then(function(r) {
+      var ok = r.ok;
+      if (btn) {
+        btn.textContent = ok ? okText : failText;
+        btn.style.background = ok ? '#16a34a' : '#dc2626';
+        setTimeout(function(){ btn.textContent = '💾 Guardar cambios'; btn.style.background = 'var(--accent)'; }, 2500);
+      }
+    }).catch(function() {
+      if (btn) {
+        btn.textContent = failText;
+        btn.style.background = '#dc2626';
+        setTimeout(function(){ btn.textContent = '💾 Guardar cambios'; btn.style.background = 'var(--accent)'; }, 2500);
+      }
+    });
+  }
+
   function saveCompProfile(id) {
     var fields = ['productos','montos','plazos','tasa','garantia','canales','estrategia'];
     var data = {};
-    var found = 0;
     fields.forEach(function(f) {
       var el = document.getElementById('prof-' + id + '-' + f);
-      if (el) { data[f] = el.value; found++; }
+      if (el) data[f] = el.value;
     });
-    var saved = false;
-    try {
-      localStorage.setItem('comp_profile_' + id, JSON.stringify(data));
-      // Verificar que realmente se guardó
-      var check = localStorage.getItem('comp_profile_' + id);
-      saved = !!check;
-    } catch(e) { saved = false; }
-    // Feedback visible en el botón
     var btn = document.getElementById('save-btn-' + id);
-    if (btn) {
-      btn.textContent = saved ? '✓ Guardado' : '✗ localStorage bloqueado';
-      btn.style.background = saved ? '#16a34a' : '#dc2626';
-      setTimeout(function(){ btn.textContent = '💾 Guardar cambios'; btn.style.background = 'var(--accent)'; }, 2500);
-    }
-    if (!saved) {
-      alert('No se pudo guardar en localStorage.\nAbre el dashboard desde un servidor local (no desde File://) o revisa los permisos del navegador.');
-    }
+    if (btn) { btn.textContent = '⏳ Guardando…'; btn.disabled = true; }
+    var nombre = _compNombre(id);
+    fetch(SUPABASE_URL + '/rest/v1/competitor_posts?competidor=eq.' + encodeURIComponent(nombre), {
+      method: 'PATCH',
+      headers: Object.assign({}, SB_HEADERS, { 'Content-Type': 'application/json', 'Prefer': 'return=minimal' }),
+      body: JSON.stringify(data)
+    }).then(function(r) {
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = r.ok ? '✓ Guardado en Supabase' : '✗ Error al guardar';
+        btn.style.background = r.ok ? '#16a34a' : '#dc2626';
+        setTimeout(function(){ btn.textContent = '💾 Guardar cambios'; btn.style.background = 'var(--accent)'; }, 2500);
+      }
+    }).catch(function() {
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = '✗ Sin conexión';
+        btn.style.background = '#dc2626';
+        setTimeout(function(){ btn.textContent = '💾 Guardar cambios'; btn.style.background = 'var(--accent)'; }, 2500);
+      }
+    });
   }
 
   function uploadCompLogo(id, input) {
@@ -4137,11 +4179,9 @@
     var reader = new FileReader();
     reader.onload = function(e) {
       var b64 = e.target.result;
-      try { localStorage.setItem('comp_logo_' + id, b64); } catch(err) {}
-      // Actualizar preview en datos tab
+      // Actualizar UI inmediatamente
       var prev = document.getElementById('logo-preview-' + id);
       if (prev) prev.innerHTML = '<img src="'+b64+'" style="width:40px;height:40px;border-radius:6px;object-fit:contain"/>';
-      // Actualizar logo en header de la card
       var wrap = document.getElementById('logo-wrap-' + id);
       if (wrap) wrap.innerHTML = '<img src="'+b64+'" style="width:36px;height:36px;border-radius:8px;object-fit:contain"/>';
       // Mostrar botón Quitar si aún no existe
@@ -4157,23 +4197,45 @@
           logoActions.appendChild(btn);
         }
       }
-      // Toast de confirmación
-      var saved = document.getElementById('logo-saved-' + id);
-      if (saved) { saved.style.opacity='1'; setTimeout(function(){ saved.style.opacity='0'; }, 2000); }
+      // Guardar en Supabase
+      var nombre = _compNombre(id);
+      fetch(SUPABASE_URL + '/rest/v1/competitor_posts?competidor=eq.' + encodeURIComponent(nombre), {
+        method: 'PATCH',
+        headers: Object.assign({}, SB_HEADERS, { 'Content-Type': 'application/json', 'Prefer': 'return=minimal' }),
+        body: JSON.stringify({ logo_base64: b64 })
+      }).then(function(r) {
+        var toast = document.getElementById('logo-saved-' + id);
+        if (toast) {
+          toast.textContent = r.ok ? '✓ Logo guardado en Supabase' : '✗ Error al guardar logo';
+          toast.style.color = r.ok ? 'var(--green)' : '#dc2626';
+          toast.style.opacity = '1';
+          setTimeout(function(){ toast.style.opacity='0'; toast.textContent='✓ Logo guardado'; toast.style.color='var(--green)'; }, 2500);
+        }
+      }).catch(function() {
+        var toast = document.getElementById('logo-saved-' + id);
+        if (toast) { toast.textContent='✗ Sin conexión'; toast.style.color='#dc2626'; toast.style.opacity='1'; setTimeout(function(){ toast.style.opacity='0'; toast.textContent='✓ Logo guardado'; toast.style.color='var(--green)'; }, 2500); }
+      });
     };
     reader.readAsDataURL(file);
   }
 
   function removeCompLogo(id) {
-    try { localStorage.removeItem('comp_logo_' + id); } catch(e) {}
+    var nombre = _compNombre(id);
     var prev = document.getElementById('logo-preview-' + id);
     var wrap = document.getElementById('logo-wrap-' + id);
-    // Buscar el logo emoji del competidor en MON_REAL o MON_DEMO
     var all = (MON_REAL.length ? MON_REAL : MON_DEMO);
     var comp = all.find(function(c){ return c.id === id; });
     var emoji = comp ? comp.logo : '🏢';
     if (prev) prev.innerHTML = '<span style="font-size:24px">'+emoji+'</span>';
     if (wrap) wrap.innerHTML = '<span style="font-size:22px">'+emoji+'</span>';
+    // Borrar en Supabase
+    fetch(SUPABASE_URL + '/rest/v1/competitor_posts?competidor=eq.' + encodeURIComponent(nombre), {
+      method: 'PATCH',
+      headers: Object.assign({}, SB_HEADERS, { 'Content-Type': 'application/json', 'Prefer': 'return=minimal' }),
+      body: JSON.stringify({ logo_base64: null })
+    }).catch(function(){});
+    var btnQuit = document.getElementById('logo-quit-' + id);
+    if (btnQuit) btnQuit.remove();
   }
 
   // Datos demo de competidores — fallback cuando aún no hay datos reales
@@ -4376,7 +4438,7 @@
     var pNotas    = 'mp-notas-'    + i;
 
     // --- Pane Datos ---
-    var prof = loadCompProfile(c.id);
+    var prof = c.perfil || COMP_PROFILES_DEFAULT[c.id] || {};
     function profInput(field, label, isLong) {
       var val = esc(prof[field] || '');
       var pid = 'prof-' + c.id + '-' + field;
@@ -4399,7 +4461,7 @@
     htmlDatos += monField('Keywords en común con Finh',c.metricas.keywords_en_comun);
     htmlDatos += monField('Cambios en sitio web',      c.metricas.cambios_web);
     htmlDatos += '</div>';
-    htmlDatos += '<div class="mon-section-title" style="margin-top:18px">📋 Perfil Competitivo <span style="font-size:10px;font-weight:500;color:var(--text3);text-transform:none;letter-spacing:0">(editable — se guarda localmente)</span></div>';
+    htmlDatos += '<div class="mon-section-title" style="margin-top:18px">📋 Perfil Competitivo <span style="font-size:10px;font-weight:500;color:var(--text3);text-transform:none;letter-spacing:0">(editable — se guarda en Supabase)</span></div>';
     htmlDatos += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:0 16px">';
     htmlDatos += profInput('productos',  '🛍️ Productos / Servicios', true);
     htmlDatos += profInput('estrategia', '📣 Estrategia de Contenido', true);
@@ -4500,9 +4562,8 @@
     htmlNotas += '<button class="mon-save-btn" data-mon-save="'+i+'">💾 Guardar nota</button>';
     htmlNotas += '<div id="mon-ns-'+i+'" style="font-size:13px;font-weight:600;margin-top:8px;min-height:20px"></div>';
 
-    // Logo: usar imagen subida si existe, si no el emoji
-    var storedLogo = null;
-    try { storedLogo = localStorage.getItem('comp_logo_' + c.id); } catch(e) {}
+    // Logo: usar logo_base64 de Supabase si existe, si no el emoji
+    var storedLogo = c.logo_base64 || null;
     var logoDisplay = storedLogo
       ? '<img src="'+storedLogo+'" style="width:36px;height:36px;border-radius:8px;object-fit:contain" />'
       : '<span style="font-size:22px">'+c.logo+'</span>';
@@ -4513,7 +4574,7 @@
     htmlDatos += '<div id="logo-preview-'+c.id+'" style="width:48px;height:48px;display:flex;align-items:center;justify-content:center;background:var(--bg2);border:1px solid var(--border);border-radius:8px">'+(storedLogo ? '<img src="'+storedLogo+'" style="width:40px;height:40px;border-radius:6px;object-fit:contain"/>' : '<span style="font-size:24px">'+c.logo+'</span>')+'</div>';
     htmlDatos += '<div id="logo-actions-'+c.id+'" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><label style="display:inline-block;padding:7px 14px;background:var(--bg2);border:1px solid var(--border);border-radius:7px;font-size:12px;font-weight:600;color:var(--text2);cursor:pointer">📁 Subir imagen<input type="file" accept="image/*" style="display:none" onchange="uploadCompLogo(\''+c.id+'\',this)"/></label>';
     if (storedLogo) htmlDatos += '<button id="logo-quit-'+c.id+'" onclick="removeCompLogo(\''+c.id+'\')" style="padding:7px 12px;background:none;border:1px solid var(--border);border-radius:7px;font-size:12px;color:var(--text3);cursor:pointer">✕ Quitar</button>';
-    htmlDatos += '<span id="logo-saved-'+c.id+'" style="font-size:12px;color:#22c55e;font-weight:600;opacity:0;transition:opacity .4s">✓ Logo guardado</span>';
+    htmlDatos += '<span id="logo-saved-'+c.id+'" style="font-size:12px;color:var(--green);font-weight:600;opacity:0;transition:opacity .4s">✓ Logo guardado</span>';
     htmlDatos += '</div></div>';
 
     return '<div class="mon-card ' + amenazaClass + '">' +
