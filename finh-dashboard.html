@@ -1363,8 +1363,17 @@
         </div>
       </div>
 
+      <!-- Vista toggle: Competidores / Recomendaciones -->
+      <div style="display:flex;gap:8px;margin-bottom:16px">
+        <button id="mon-view-comp" onclick="monSwitchView('competidores',this)" style="padding:7px 18px;border-radius:8px;border:1.5px solid var(--accent);background:var(--accent);color:#fff;font-size:13px;font-weight:600;cursor:pointer">🏢 Competidores</button>
+        <button id="mon-view-recom" onclick="monSwitchView('recomendaciones',this)" style="padding:7px 18px;border-radius:8px;border:1.5px solid var(--border);background:var(--card);color:var(--text2);font-size:13px;font-weight:600;cursor:pointer">💡 Recomendaciones para Blog Finh</button>
+      </div>
+
       <!-- Lista de competidores -->
       <div id="mon-list"></div>
+
+      <!-- Sección de Recomendaciones -->
+      <div id="mon-recom" style="display:none"></div>
 
     </div><!-- /view-monitor -->
 
@@ -2560,8 +2569,8 @@
         var competArr = results[9] || [];
         if (Array.isArray(competArr) && competArr.length) {
           var nivelMap = { alto:'alerta', medio:'activo', bajo:'estable' };
-          var logoMap  = { 'Konfío':'🦁', 'Bien Para Bien':'🌱', 'Grupo Capem':'🏗️', 'Serfimex Capital':'💼', 'Xepelin':'⚡', 'Exitus Capital':'🚀', 'Kapital':'💡', 'Afirme':'🏦', 'Portafolio de Negocios':'📂' };
-          var sectorMap = { 'Konfío':'SOFOM / Fintech', 'Bien Para Bien':'SOFOM / Crédito', 'Grupo Capem':'Arrendamiento / Capital', 'Serfimex Capital':'SOFOM / Arrendamiento', 'Xepelin':'Factoraje Digital', 'Exitus Capital':'Crédito Empresarial', 'Kapital':'Crédito PyME Digital', 'Afirme':'Banco Empresarial', 'Portafolio de Negocios':'Crédito Empresarial' };
+          var logoMap  = { 'Konfío':'🦁', 'Bien Para Bien':'🌱', 'Grupo Capem':'🏗️', 'Serfimex Capital':'💼', 'Xepelin':'⚡', 'Exitus Capital':'🚀', 'Kapital':'💡', 'Afirme':'🏦', 'Portafolio de Negocios':'📂', 'Covalto':'🔷', 'Finh Soluciones Económicas':'✅', 'Kapitalizer':'🎯', 'Engen Capital':'🌿', 'Finamo':'🏛️' };
+          var sectorMap = { 'Konfío':'SOFOM / Fintech', 'Bien Para Bien':'SOFOM / Crédito', 'Grupo Capem':'Arrendamiento / Capital', 'Serfimex Capital':'SOFOM / Arrendamiento', 'Xepelin':'Factoraje Digital', 'Exitus Capital':'Crédito Empresarial', 'Kapital':'Crédito PyME Digital', 'Afirme':'Banco Empresarial', 'Portafolio de Negocios':'Crédito Empresarial', 'Covalto':'Banco Digital PyME', 'Finh Soluciones Económicas':'SOFOM / Arrendamiento Propio', 'Kapitalizer':'Fintech / Crédito PyME', 'Engen Capital':'Capital de Riesgo', 'Finamo':'Financiamiento Gubernamental' };
           MON_REAL = competArr.map(function(r) {
             var arts     = Array.isArray(r.articulos) ? r.articulos : [];
             var kws      = Array.isArray(r.keywords_objetivo) ? r.keywords_objetivo : [];
@@ -4069,6 +4078,44 @@
   var monState = { filter: 'todos', search: '' };
   var MON_REAL = []; // se llena desde Supabase competitor_posts en loadData()
 
+  // Perfiles pre-llenados de competidores (editables por el usuario vía localStorage)
+  var COMP_PROFILES_DEFAULT = {
+    'konfío':                    { productos:'Crédito PyME, Factoraje electrónico, Cuenta de negocios Konfío', montos:'$50,000 – $4,000,000 MXN', plazos:'3 a 24 meses (crédito); 1-90 días (factoraje)', tasa:'~2% – 4% mensual', garantia:'Sin garantía hipotecaria; requiere aval personal', canales:'App móvil iOS/Android, Plataforma web, WhatsApp Business', estrategia:'SEO agresivo en keywords de crédito PyME; blog educativo sobre finanzas para dueños de negocio; casos de éxito' },
+    'bienparabien':              { productos:'Crédito con garantía hipotecaria para negocios', montos:'$200,000 – $5,000,000 MXN', plazos:'12 a 48 meses', tasa:'~1.5% – 2.5% mensual', garantia:'Hipotecaria (bien inmueble como colateral)', canales:'Web, ejecutivos de cuenta, WhatsApp', estrategia:'Blog educativo sobre finanzas y microfinanzas; responsabilidad social; emprendedores' },
+    'grupocapem':                { productos:'Arrendamiento financiero, Arrendamiento puro, Crédito para equipo y maquinaria', montos:'Desde $500,000 MXN (variable por proyecto)', plazos:'12 a 60 meses', tasa:'Variable (TIIE + spread)', garantia:'El bien arrendado; aval corporativo en algunos casos', canales:'Web institucional, ejecutivos directos B2B, referidos', estrategia:'Sin blog activo; posicionamiento vía sitio web institucional y relaciones comerciales directas' },
+    'serfimexcapital':           { productos:'Arrendamiento financiero, Arrendamiento puro, Crédito simple empresarial', montos:'$500,000 – $20,000,000 MXN', plazos:'12 a 60 meses', tasa:'Variable (TIIE + margen); desde ~12% anual', garantia:'El bien arrendado; aval corporativo en casos requeridos', canales:'Web, ejecutivos de cuenta, oficinas en CDMX y principales plazas', estrategia:'Artículos educativos sobre arrendamiento y prensa sectorial; bajo volumen de publicaciones' },
+    'xepelin':                   { productos:'Factoraje electrónico, Confirming, Línea de crédito revolvente', montos:'$100,000 – $10,000,000 MXN', plazos:'30 a 180 días (factoraje); 3-36 meses (crédito)', tasa:'~1.5% – 3% mensual', garantia:'Facturas como colateral; sin garantía hipotecaria', canales:'App web, integración con SAT/ERP, API para empresas', estrategia:'Blog con guías de finanzas empresariales; SEO agresivo en keywords de PyME y flujo de caja; newsroom con noticias de empresa' },
+    'exituscapital':             { productos:'Crédito empresarial, Factoraje, Financiamiento de proyectos', montos:'$1,000,000 – $50,000,000 MXN', plazos:'6 a 48 meses', tasa:'A convenir según perfil del cliente', garantia:'Hipotecaria o bien del proyecto; negociable', canales:'Web, ejecutivos B2B, presencia internacional', estrategia:'Comunicación institucional y media/prensa; enfoque en empresas medianas-grandes y proyectos de alto valor' },
+    'kapital':                   { productos:'Crédito revolvente PyME, Crédito a término, Anticipo de nómina', montos:'$50,000 – $5,000,000 MXN', plazos:'3 a 36 meses', tasa:'~2% – 4% mensual', garantia:'Sin garantía hipotecaria; scoring crediticio digital', canales:'App móvil, Plataforma web, integración con sistemas contables', estrategia:'Blog digital-first, redes sociales activas, posicionamiento en tecnología financiera para PyMEs' },
+    'afirme':                    { productos:'Crédito empresarial, Arrendamiento, Factoraje, Leasing de equipo', montos:'Variable según producto ($500K – $100M MXN)', plazos:'12 a 60 meses', tasa:'Según perfil; competitiva para clientes con historial bancario', garantia:'Hipotecaria, el bien arrendado, o garantía líquida según producto', canales:'Sucursales bancarias, web, ejecutivos de banca empresarial (foco noreste México)', estrategia:'Blog con contenido financiero general; posicionamiento como banco completo para empresas del noreste de México' },
+    'portafoliodenegocios':      { productos:'Crédito para negocios, Microcrédito, Crédito grupal', montos:'$10,000 – $500,000 MXN', plazos:'4 a 24 meses', tasa:'~3% – 6% mensual (microfinanzas)', garantia:'Aval grupal o personal; sin hipotecaria', canales:'Promotores de campo, web, WhatsApp', estrategia:'Blog educativo sobre emprendimiento y finanzas para micronegocios; enfoque en comunidades y negocios informales' },
+    'covalto':                   { productos:'Cuenta empresarial digital, Crédito PyME, Factoraje, Pagos internacionales', montos:'$100,000 – $10,000,000 MXN', plazos:'3 a 36 meses', tasa:'~1.5% – 3% mensual', garantia:'Sin garantía hipotecaria; basado en flujos y scoring digital', canales:'App web y móvil, API bancaria, ejecutivos digitales', estrategia:'Blog con recursos para PyMEs; noticias de empresa; posicionamiento como banco digital empresarial' },
+    'finhsolucionseconómicas':   { productos:'Arrendamiento financiero, Arrendamiento puro, Crédito simple para PyMEs', montos:'$500,000 – $20,000,000 MXN', plazos:'12 a 60 meses', tasa:'Competitiva (TIIE + spread); consultamos según perfil', garantia:'El bien arrendado; aval empresarial en algunos casos', canales:'Web, ejecutivos de cuenta, referidos', estrategia:'Blog educativo sobre arrendamiento financiero, casos de uso para PyMEs manufactureras y comerciales' },
+    'kapitalizer':               { productos:'Crédito PyME digital, Financiamiento para negocios', montos:'Por definir', plazos:'Por definir', tasa:'Por definir', garantia:'Por definir', canales:'Plataforma web digital', estrategia:'Blog de contenido PyME y educación financiera' },
+    'engencapital':              { productos:'Capital de riesgo, Financiamiento empresarial, Deuda mezzanine', montos:'Variable según proyecto (desde $1M MXN)', plazos:'Variable según etapa de empresa', tasa:'Por definir (capital/deuda)', garantia:'Participación accionaria o garantías negociadas', canales:'Web, redes empresariales, pitch directo', estrategia:'Comunicación institucional; sin blog activo identificado' },
+    'finamo':                    { productos:'Crédito para negocios (Programa Nacional), Financiamiento a PyMEs con respaldo NAFIN', montos:'Variable según programa ($100K – $5M MXN)', plazos:'12 a 60 meses', tasa:'Subsidiada en algunos programas; ~1-2% mensual', garantia:'Garantía NAFIN, aval personal o empresarial', canales:'Web, intermediarios financieros, ejecutivos de cuenta', estrategia:'Blog con información de programas de financiamiento gubernamental y educación financiera para PyMEs' },
+  };
+
+  function loadCompProfile(id) {
+    try {
+      var stored = localStorage.getItem('comp_profile_' + id);
+      if (stored) return JSON.parse(stored);
+    } catch(e) {}
+    return COMP_PROFILES_DEFAULT[id] || { productos:'', montos:'', plazos:'', tasa:'', garantia:'', canales:'', estrategia:'' };
+  }
+
+  function saveCompProfile(id) {
+    var fields = ['productos','montos','plazos','tasa','garantia','canales','estrategia'];
+    var data = {};
+    fields.forEach(function(f) {
+      var el = document.getElementById('prof-' + id + '-' + f);
+      if (el) data[f] = el.value;
+    });
+    try { localStorage.setItem('comp_profile_' + id, JSON.stringify(data)); } catch(e) {}
+    var st = document.getElementById('prof-saved-' + id);
+    if (st) { st.style.opacity='1'; setTimeout(function(){ st.style.opacity='0'; }, 2000); }
+  }
+
   // Datos demo de competidores — fallback cuando aún no hay datos reales
   var MON_DEMO = [
     {
@@ -4269,6 +4316,16 @@
     var pNotas    = 'mp-notas-'    + i;
 
     // --- Pane Datos ---
+    var prof = loadCompProfile(c.id);
+    function profInput(field, label, isLong) {
+      var val = esc(prof[field] || '');
+      var pid = 'prof-' + c.id + '-' + field;
+      var inputStyle = 'width:100%;box-sizing:border-box;padding:7px 10px;background:var(--bg2);border:1px solid var(--border);border-radius:6px;font-size:12px;color:var(--text);font-family:inherit;resize:vertical;outline:none;transition:border-color .2s';
+      var el = isLong
+        ? '<textarea id="'+pid+'" rows="2" style="'+inputStyle+'">'+val+'</textarea>'
+        : '<input id="'+pid+'" type="text" value="'+val+'" style="'+inputStyle+';resize:none" />';
+      return '<div style="margin-bottom:10px"><div class="mon-field-label" style="margin-bottom:4px">'+label+'</div>'+el+'</div>';
+    }
     var htmlDatos = '<div class="mon-grid2">';
     htmlDatos += monField('Empresa',     c.nombre);
     htmlDatos += monField('Sector',      sectorLabel);
@@ -4281,6 +4338,20 @@
     htmlDatos += monField('Menciones de marca',        c.metricas.menciones);
     htmlDatos += monField('Keywords en común con Finh',c.metricas.keywords_en_comun);
     htmlDatos += monField('Cambios en sitio web',      c.metricas.cambios_web);
+    htmlDatos += '</div>';
+    htmlDatos += '<div class="mon-section-title" style="margin-top:18px">📋 Perfil Competitivo <span style="font-size:10px;font-weight:500;color:var(--text3);text-transform:none;letter-spacing:0">(editable — se guarda localmente)</span></div>';
+    htmlDatos += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:0 16px">';
+    htmlDatos += profInput('productos',  '🛍️ Productos / Servicios', true);
+    htmlDatos += profInput('estrategia', '📣 Estrategia de Contenido', true);
+    htmlDatos += profInput('montos',     '💰 Montos de crédito / financiamiento', false);
+    htmlDatos += profInput('plazos',     '📅 Plazos', false);
+    htmlDatos += profInput('tasa',       '📈 Tasa de interés', false);
+    htmlDatos += profInput('garantia',   '🔒 Garantía requerida', false);
+    htmlDatos += '</div>';
+    htmlDatos += profInput('canales',    '📱 Canales digitales', false);
+    htmlDatos += '<div style="display:flex;align-items:center;gap:10px;margin-top:4px">';
+    htmlDatos += '<button onclick="saveCompProfile(\''+c.id+'\')" style="padding:7px 18px;background:var(--accent);color:#fff;border:none;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer">💾 Guardar cambios</button>';
+    htmlDatos += '<span id="prof-saved-'+c.id+'" style="font-size:12px;color:#22c55e;font-weight:600;opacity:0;transition:opacity .4s">✓ Guardado</span>';
     htmlDatos += '</div>';
 
     // --- Pane Publicaciones ---
@@ -4413,6 +4484,182 @@
 
   function monField(label, value) {
     return '<div><div class="mon-field-label">'+label+'</div><div class="mon-field-value">'+value+'</div></div>';
+  }
+
+  var monCurrentView = 'competidores';
+
+  function monSwitchView(view, btn) {
+    monCurrentView = view;
+    var btnComp  = document.getElementById('mon-view-comp');
+    var btnRecom = document.getElementById('mon-view-recom');
+    var listEl   = document.getElementById('mon-list');
+    var recomEl  = document.getElementById('mon-recom');
+    if (view === 'competidores') {
+      if (btnComp)  { btnComp.style.background='var(--accent)'; btnComp.style.color='#fff'; btnComp.style.borderColor='var(--accent)'; }
+      if (btnRecom) { btnRecom.style.background='var(--card)'; btnRecom.style.color='var(--text2)'; btnRecom.style.borderColor='var(--border)'; }
+      if (listEl)  listEl.style.display='';
+      if (recomEl) recomEl.style.display='none';
+    } else {
+      if (btnRecom) { btnRecom.style.background='var(--accent)'; btnRecom.style.color='#fff'; btnRecom.style.borderColor='var(--accent)'; }
+      if (btnComp)  { btnComp.style.background='var(--card)'; btnComp.style.color='var(--text2)'; btnComp.style.borderColor='var(--border)'; }
+      if (listEl)  listEl.style.display='none';
+      if (recomEl) { recomEl.style.display=''; renderRecomendaciones(); }
+    }
+  }
+
+  function renderRecomendaciones() {
+    var el = document.getElementById('mon-recom');
+    if (!el) return;
+    var src = MON_REAL.length ? MON_REAL : MON_DEMO;
+    // Excluir Finh propio del análisis de competidores
+    var comps = src.filter(function(c){ return c.nombre !== 'Finh Soluciones Económicas'; });
+
+    // Agregar keywords por frecuencia
+    var kwFreq = {};
+    var kwComp = {};
+    comps.forEach(function(c) {
+      (c.seo.keywords||[]).forEach(function(k) {
+        var key = k.toLowerCase().trim();
+        kwFreq[key] = (kwFreq[key]||0) + 1;
+        kwComp[key] = kwComp[key] || [];
+        kwComp[key].push(c.nombre);
+      });
+    });
+    var topKws = Object.keys(kwFreq).sort(function(a,b){ return kwFreq[b]-kwFreq[a]; }).slice(0,15);
+
+    // Agregar temas por frecuencia
+    var temaFreq = {};
+    var temaComp = {};
+    comps.forEach(function(c) {
+      var temas = (c.insights||[]).filter(function(i){ return i.icono==='📌'; }).map(function(i){ return i.texto.replace(/Tema detectado: <strong>|<\/strong>/g,'').trim(); });
+      temas.forEach(function(t) {
+        var key = t.toLowerCase().trim();
+        temaFreq[key] = (temaFreq[key]||0) + 1;
+        temaComp[key] = temaComp[key] || [];
+        temaComp[key].push(c.nombre);
+      });
+    });
+    var topTemas = Object.keys(temaFreq).sort(function(a,b){ return temaFreq[b]-temaFreq[a]; }).slice(0,10);
+
+    // Oportunidades de todos los competidores
+    var allOps = [];
+    comps.forEach(function(c) {
+      (c.oportunidades_finh||[]).forEach(function(op) {
+        allOps.push({ op: op, from: c.nombre, logo: c.logo });
+      });
+    });
+
+    // Generar ideas de blog basadas en keywords trending
+    var blogIdeas = [
+      { titulo: 'Guía completa de arrendamiento financiero para PyMEs mexicanas 2026', keywords: ['arrendamiento financiero','pymes','mexico'], prioridad: 'alta', razon: 'Tema no cubierto por competidores — diferenciador clave para Finh' },
+      { titulo: 'Arrendamiento puro vs. crédito simple: ¿cuál conviene más a tu empresa?', keywords: ['arrendamiento puro','crédito simple','financiamiento'], prioridad: 'alta', razon: 'Cubre keywords que varios competidores atacan — Finh puede posicionarse con enfoque especializado' },
+      { titulo: 'Cómo mejorar el flujo de caja con arrendamiento de activos', keywords: ['flujo de caja','capital de trabajo','activos'], prioridad: 'alta', razon: 'Oportunidad detectada en análisis de Konfío y Bien Para Bien' },
+      { titulo: 'Requisitos para obtener arrendamiento financiero en México: lo que necesitas saber', keywords: ['requisitos','arrendamiento','sofom'], prioridad: 'media', razon: 'Alta intención de búsqueda; competidores como Kapital y Xepelin cubren crédito pero no arrendamiento' },
+      { titulo: 'Diferencia entre SOFOM regulada y no regulada en México', keywords: ['sofom','regulada','regulación financiera'], prioridad: 'media', razon: 'Tema educativo de alto tráfico que posiciona a Finh como experto sectorial' },
+      { titulo: 'Caso de éxito: PyME manufacturera financia maquinaria con arrendamiento puro', keywords: ['caso de éxito','maquinaria','manufactura'], prioridad: 'media', razon: 'Contenido de conversión; ningún competidor publica casos reales de arrendamiento de activos' },
+      { titulo: 'PyMEs y la Reforma Laboral 2026: cómo el arrendamiento de equipo reduce riesgos', keywords: ['reforma laboral','equipo','riesgo'], prioridad: 'alta', razon: 'Tema trending detectado en blogs de competidores; ángulo único de Finh' },
+      { titulo: 'Exportación e importación para PyMEs: cómo financiar el crecimiento sin comprometer liquidez', keywords: ['exportación','financiamiento','liquidez'], prioridad: 'media', razon: 'Keyword atacada por Konfío; Finh puede diferenciarse con ángulo de arrendamiento de equipo' },
+    ];
+
+    // Agregar ideas dinámicas desde keywords trending
+    topKws.slice(0,5).forEach(function(kw) {
+      var compsStr = kwComp[kw].slice(0,3).join(', ');
+      blogIdeas.push({
+        titulo: 'Contenido sobre: ' + kw.charAt(0).toUpperCase() + kw.slice(1) + ' — perspectiva Finh',
+        keywords: [kw],
+        prioridad: kwFreq[kw] >= 3 ? 'alta' : 'media',
+        razon: kwFreq[kw] + ' competidor(es) atacan este keyword: ' + compsStr
+      });
+    });
+
+    var prioColor = { alta:'#ef4444', media:'#f59e0b', baja:'#10b981' };
+    var prioLabel = { alta:'🔴 Alta', media:'🟡 Media', baja:'🟢 Baja' };
+
+    var html = '<div style="display:flex;flex-direction:column;gap:20px">';
+
+    // Banner fuente
+    html += '<div style="padding:10px 16px;background:rgba(99,102,241,0.08);border:1px solid rgba(99,102,241,0.25);border-radius:10px;font-size:12px;color:#6366f1;font-weight:600">'
+      + '🤖 Recomendaciones generadas con base en el análisis de ' + comps.length + ' competidores — actualizado automáticamente por n8n cada semana'
+      + '</div>';
+
+    // IDEAS DE BLOG
+    html += '<div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px">';
+    html += '<div style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:4px">✍️ Ideas de Blog Recomendadas para Finh</div>';
+    html += '<div style="font-size:12px;color:var(--text2);margin-bottom:16px">Basadas en gaps de contenido vs competidores y keywords con alta frecuencia de ataque</div>';
+    html += '<div style="display:flex;flex-direction:column;gap:10px">';
+    blogIdeas.forEach(function(idea) {
+      var pc = prioColor[idea.prioridad] || '#6366f1';
+      html += '<div style="padding:14px 16px;background:var(--bg2);border:1px solid var(--border);border-radius:10px;border-left:3px solid '+pc+'">'
+        + '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:8px">'
+        + '<div style="font-size:13px;font-weight:600;color:var(--text);line-height:1.5;flex:1">'+esc(idea.titulo)+'</div>'
+        + '<span style="font-size:11px;font-weight:700;color:'+pc+';white-space:nowrap;flex-shrink:0">'+prioLabel[idea.prioridad]+'</span>'
+        + '</div>'
+        + '<div style="font-size:11px;color:#10b981;margin-bottom:8px">💡 '+esc(idea.razon)+'</div>'
+        + '<div style="display:flex;flex-wrap:wrap;gap:5px">'
+        + idea.keywords.map(function(k){ return '<span style="padding:3px 10px;background:rgba(99,102,241,0.1);border:1px solid rgba(99,102,241,0.3);border-radius:12px;font-size:11px;color:#6366f1;font-weight:600">🔑 '+esc(k)+'</span>'; }).join('')
+        + '</div>'
+        + '</div>';
+    });
+    html += '</div></div>';
+
+    // KEYWORDS TRENDING
+    if (topKws.length) {
+      html += '<div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px">';
+      html += '<div style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:4px">🔑 Keywords más atacadas por la competencia</div>';
+      html += '<div style="font-size:12px;color:var(--text2);margin-bottom:16px">Frecuencia de aparición en blogs de competidores — oportunidad para posicionarse en Google</div>';
+      html += '<div style="display:flex;flex-wrap:wrap;gap:8px">';
+      var kwColors2 = ['#ef4444','#f59e0b','#6366f1','#10b981','#3b82f6','#8b5cf6','#ec4899','#14b8a6','#f97316','#84cc16'];
+      topKws.forEach(function(kw, ki) {
+        var col = kwColors2[ki % kwColors2.length];
+        var freq = kwFreq[kw];
+        html += '<div style="display:flex;align-items:center;gap:6px;padding:8px 14px;background:'+col+'12;border:1.5px solid '+col+'30;border-radius:20px;cursor:default" title="'+esc((kwComp[kw]||[]).join(', '))+'">'
+          + '<span style="font-size:12px;font-weight:700;color:'+col+'">'+esc(kw)+'</span>'
+          + '<span style="font-size:10px;background:'+col+'25;color:'+col+';padding:2px 6px;border-radius:10px;font-weight:700">'+freq+'x</span>'
+          + '</div>';
+      });
+      html += '</div></div>';
+    }
+
+    // TEMAS TRENDING
+    if (topTemas.length) {
+      html += '<div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px">';
+      html += '<div style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:4px">📌 Temas de contenido en tendencia</div>';
+      html += '<div style="font-size:12px;color:var(--text2);margin-bottom:14px">Temas detectados en múltiples competidores esta semana</div>';
+      html += '<div style="display:flex;flex-direction:column;gap:8px">';
+      topTemas.forEach(function(tema) {
+        var freq = temaFreq[tema];
+        var compsStr = (temaComp[tema]||[]).slice(0,4).join(', ');
+        html += '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;flex-wrap:wrap;gap:6px">'
+          + '<div style="font-size:13px;font-weight:500;color:var(--text)">📌 '+esc(tema.charAt(0).toUpperCase()+tema.slice(1))+'</div>'
+          + '<div style="display:flex;align-items:center;gap:8px">'
+          + '<span style="font-size:11px;color:var(--text2)">'+esc(compsStr)+'</span>'
+          + '<span style="font-size:10px;font-weight:700;background:rgba(233,69,96,0.1);color:var(--accent);padding:3px 8px;border-radius:10px">'+freq+' competidores</span>'
+          + '</div>'
+          + '</div>';
+      });
+      html += '</div></div>';
+    }
+
+    // OPORTUNIDADES PARA FINH
+    if (allOps.length) {
+      html += '<div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px">';
+      html += '<div style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:4px">🎯 Oportunidades detectadas por la IA</div>';
+      html += '<div style="font-size:12px;color:var(--text2);margin-bottom:14px">Ventajas competitivas y nichos de contenido identificados en el análisis de cada competidor</div>';
+      html += '<div style="display:flex;flex-direction:column;gap:8px">';
+      allOps.forEach(function(item) {
+        html += '<div style="display:flex;align-items:flex-start;gap:12px;padding:12px 14px;background:rgba(22,163,74,0.05);border:1px solid rgba(22,163,74,0.2);border-radius:8px;border-left:3px solid #16a34a">'
+          + '<div style="font-size:18px;flex-shrink:0">'+item.logo+'</div>'
+          + '<div style="flex:1">'
+          + '<div style="font-size:11px;font-weight:700;color:#16a34a;margin-bottom:4px;text-transform:uppercase;letter-spacing:0.4px">vs '+esc(item.from)+'</div>'
+          + '<div style="font-size:13px;color:var(--text);line-height:1.5">🚀 '+esc(item.op)+'</div>'
+          + '</div>'
+          + '</div>';
+      });
+      html += '</div></div>';
+    }
+
+    html += '</div>';
+    el.innerHTML = html;
   }
 
   // =========================================================
