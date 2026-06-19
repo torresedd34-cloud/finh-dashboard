@@ -4157,19 +4157,27 @@
       headers: Object.assign({}, SB_HEADERS, { 'Content-Type': 'application/json', 'Prefer': 'return=minimal' }),
       body: JSON.stringify(data)
     }).then(function(r) {
+      if (btn) btn.disabled = false;
+      r.text().then(function(body) {
+        var ok = r.ok;
+        var msg = ok ? '✓ Guardado (' + r.status + ')' : '✗ Error ' + r.status + ': ' + body.slice(0,80);
+        if (btn) {
+          btn.textContent = msg;
+          btn.style.background = ok ? '#16a34a' : '#dc2626';
+          btn.style.fontSize = ok ? '' : '10px';
+          setTimeout(function(){ btn.textContent = '💾 Guardar cambios'; btn.style.background = 'var(--accent)'; btn.style.fontSize = ''; }, 4000);
+        }
+        if (!ok) console.error('[saveCompProfile] PATCH failed', r.status, body, 'nombre:', nombre, 'data:', data);
+      });
+    }).catch(function(err) {
       if (btn) {
         btn.disabled = false;
-        btn.textContent = r.ok ? '✓ Guardado en Supabase' : '✗ Error al guardar';
-        btn.style.background = r.ok ? '#16a34a' : '#dc2626';
-        setTimeout(function(){ btn.textContent = '💾 Guardar cambios'; btn.style.background = 'var(--accent)'; }, 2500);
-      }
-    }).catch(function() {
-      if (btn) {
-        btn.disabled = false;
-        btn.textContent = '✗ Sin conexión';
+        btn.textContent = '✗ ' + (err.message || 'Sin conexión');
         btn.style.background = '#dc2626';
-        setTimeout(function(){ btn.textContent = '💾 Guardar cambios'; btn.style.background = 'var(--accent)'; }, 2500);
+        btn.style.fontSize = '10px';
+        setTimeout(function(){ btn.textContent = '💾 Guardar cambios'; btn.style.background = 'var(--accent)'; btn.style.fontSize = ''; }, 4000);
       }
+      console.error('[saveCompProfile] fetch error', err, 'nombre:', nombre);
     });
   }
 
