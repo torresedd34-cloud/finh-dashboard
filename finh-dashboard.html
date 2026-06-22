@@ -3,6 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self' https://vpquftoxoygrckjxmoip.supabase.co https://api.groq.com https://n8n.torres-automation.cloud; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self' https://vpquftoxoygrckjxmoip.supabase.co https://api.groq.com https://n8n.torres-automation.cloud; frame-ancestors 'self' https://finh.mx https://*.finh.mx https://torresedd34-cloud.github.io https://classy-nasturtium-f9a472.netlify.app;">
+<meta http-equiv="X-Content-Type-Options" content="nosniff">
+<meta name="robots" content="noindex, nofollow">
 <title>FINH Analytics Dashboard</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -2209,9 +2212,20 @@
     'Content-Type': 'application/json'
   };
 
+  // Verificar JWT cada 5 minutos — auto-logout si expiró
+  setInterval(function() {
+    var expires = parseInt(sessionStorage.getItem('finh_sb_expires') || '0');
+    var token   = sessionStorage.getItem('finh_sb_token');
+    if (token && expires && Date.now() > expires) {
+      alert('Tu sesión expiró. Ingresa de nuevo.');
+      logout();
+    }
+  }, 5 * 60 * 1000);
+
   async function sbGet(table, params) {
     var url = SUPABASE_URL + '/rest/v1/' + table + '?' + (params || 'select=*');
     var res = await fetch(url, { headers: SB_HEADERS, signal: AbortSignal.timeout(10000) });
+    if (res.status === 401 || res.status === 403) { logout(); throw new Error('Sesión expirada'); }
     if (!res.ok) throw new Error('Supabase GET ' + table + ': ' + res.status);
     return res.json();
   }
@@ -5149,8 +5163,8 @@
     var el = document.getElementById('cfg-webhook-body');
     if (!el) return;
     var endpoints = [
-      { label:'Dashboard Data (GET)', url: API_URL, desc:'n8n lee leads y métricas desde Supabase y responde aquí' },
-      { label:'Supabase URL',         url: SUPABASE_URL, desc:'Base de datos donde se guardan todos los leads, posts y emails' },
+      { label:'Dashboard Data (GET)', url: API_URL.replace(/\/\/[^/]+/, '//***').replace(/\/webhook\/.*/, '/webhook/***'), desc:'n8n lee leads y métricas desde Supabase y responde aquí' },
+      { label:'Supabase Project',     url: SUPABASE_URL.replace(/\/\/[^.]+/, '//***'), desc:'Base de datos donde se guardan todos los leads, posts y emails' },
     ];
     el.innerHTML = endpoints.map(function(ep){
       var uid = 'wh-'+Math.random().toString(36).slice(2,7);
