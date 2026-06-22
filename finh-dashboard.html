@@ -1915,9 +1915,15 @@
                 </div>
                 <div class="cfg-conn-row">
                   <div class="cfg-conn-icon">🤖</div>
-                  <div class="cfg-conn-info"><div class="cfg-conn-name">Groq AI (llama-3.3-70b)</div><div class="cfg-conn-desc">Análisis y calificación de leads con IA</div></div>
+                  <div class="cfg-conn-info"><div class="cfg-conn-name">Groq AI (llama-3.3-70b)</div><div class="cfg-conn-desc">Análisis de leads, competidores y sugerencia de tareas</div></div>
                   <div class="cfg-conn-status ok"><div class="cfg-conn-dot"></div>Activo</div>
                   <button class="cfg-test-btn" onclick="cfgTestConn('groq',this)">Probar</button>
+                </div>
+                <div style="padding:12px 16px;background:var(--bg);border-radius:8px;margin-top:4px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+                  <span style="font-size:12px;color:var(--text2);font-weight:600;white-space:nowrap">🔑 Groq API Key:</span>
+                  <input id="cfg-groq-key" type="password" placeholder="gsk_..." value="" style="flex:1;min-width:200px;padding:7px 10px;border:1px solid var(--border);border-radius:7px;font-size:12px;background:var(--card);color:var(--text);font-family:monospace">
+                  <button onclick="cfgSaveGroqKey()" style="padding:7px 14px;background:var(--accent);color:#fff;border:none;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer">Guardar</button>
+                  <span id="cfg-groq-saved" style="font-size:11px;color:#16a34a;opacity:0;transition:opacity .3s">✓ Guardada</span>
                 </div>
               </div>
             </div>
@@ -2187,18 +2193,16 @@
   'use strict';
 
   // =========================================================
-  // CONFIG — obfuscated
+  // CONFIG
   // =========================================================
-  var _u  = 'aHR0cHM6Ly9uOG4udG9ycmVzLWF1dG9tYXRpb24uY2xvdWQvd2ViaG9vay9maW5oLWxlYWRzLWRhdGE=';
-  var _p  = 'RmluaDIwMjQh';
-  var API_URL    = atob(_u);
-  var PASS_RAW   = atob(_p);
-
-  // ── Supabase (reemplaza JSONbin) ──
+  var API_URL      = 'https://n8n.torres-automation.cloud/webhook/finh-leads-data';
   var SUPABASE_URL = 'https://vpquftoxoygrckjxmoip.supabase.co';
-  var SUPABASE_KEY = 'sb_publishable_oQaR6x59mAL56QAPK8exug_1EwUPPFG';
+  var SUPABASE_KEY = 'sb_publishable_oQaR6x59mAL56QAPK8exug_1EwUPPFG'; // anon/publishable key — seguro exponer con RLS activo
+  var GROQ_KEY     = '';
+  try { GROQ_KEY   = localStorage.getItem('finh_groq_key') || ''; } catch(e) {}
+  var SB_USER_EMAIL = 'et@finh.mx'; // email del único usuario autorizado
 
-  // ── Supabase helpers ──
+  // ── Supabase headers — se actualizan con JWT real tras login ──
   var SB_HEADERS = {
     'apikey': SUPABASE_KEY,
     'Authorization': 'Bearer ' + SUPABASE_KEY,
@@ -2281,22 +2285,14 @@
   };
 
   // =========================================================
-  // CRYPTO / AUTH
+  // AUTH — Supabase Auth (contraseña vive en el servidor, no en el código)
   // =========================================================
-  async function hashPwd(pwd) {
-    var today = new Date().toISOString().slice(0, 10);
-    var msg = pwd + today;
-    var buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(msg));
-    return Array.from(new Uint8Array(buf)).map(function(b){ return b.toString(16).padStart(2,'0'); }).join('');
-  }
-
   async function checkAuth() {
-    var token = sessionStorage.getItem('finh_token');
-    var day   = sessionStorage.getItem('finh_token_day');
-    var today = new Date().toISOString().slice(0, 10);
-    if (!token || day !== today) return false;
-    var expected = await hashPwd(PASS_RAW);
-    return token === expected;
+    var token   = sessionStorage.getItem('finh_sb_token');
+    var expires = parseInt(sessionStorage.getItem('finh_sb_expires') || '0');
+    if (!token || Date.now() > expires) return false;
+    SB_HEADERS['Authorization'] = 'Bearer ' + token; // restaurar JWT en headers
+    return true;
   }
 
   async function handleLogin() {
@@ -2308,28 +2304,47 @@
       return;
     }
     var pwd = document.getElementById('pwd-input').value;
-    if (!pwd) { setErr('Ingresa la contrasena.'); return; }
+    if (!pwd) { setErr('Ingresa la contraseña.'); return; }
 
-    var hash = await hashPwd(pwd);
-    var expected = await hashPwd(PASS_RAW);
+    var loginBtn = document.getElementById('login-btn');
+    if (loginBtn) { loginBtn.disabled = true; loginBtn.textContent = 'Verificando…'; }
 
-    if (hash === expected) {
-      var today = new Date().toISOString().slice(0, 10);
-      sessionStorage.setItem('finh_token', hash);
-      sessionStorage.setItem('finh_token_day', today);
+    try {
+      var res = await fetch(SUPABASE_URL + '/auth/v1/token?grant_type=password', {
+        method: 'POST',
+        headers: { 'apikey': SUPABASE_KEY, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: SB_USER_EMAIL, password: pwd })
+      });
+      var data = await res.json();
+
+      if (!res.ok) {
+        state.loginAttempts++;
+        if (state.loginAttempts >= 3) {
+          state.loginBlockedUntil = Date.now() + 60000;
+          state.loginAttempts = 0;
+          startBlockCountdown();
+        } else {
+          setErr('Contraseña incorrecta. (' + (3 - state.loginAttempts) + ' intentos restantes)');
+        }
+        if (loginBtn) { loginBtn.disabled = false; loginBtn.textContent = 'Entrar'; }
+        return;
+      }
+
+      // Éxito — guardar JWT y actualizar headers
+      var jwt     = data.access_token;
+      var ttl     = (data.expires_in || 3600) * 1000;
+      sessionStorage.setItem('finh_sb_token',   jwt);
+      sessionStorage.setItem('finh_sb_expires', String(Date.now() + ttl));
+      SB_HEADERS['Authorization'] = 'Bearer ' + jwt;
       state.loginAttempts = 0;
       clearErr();
       document.getElementById('block-msg').classList.add('hidden');
+      if (loginBtn) { loginBtn.disabled = false; loginBtn.textContent = 'Entrar'; }
       showApp();
-    } else {
-      state.loginAttempts++;
-      if (state.loginAttempts >= 3) {
-        state.loginBlockedUntil = Date.now() + 60000;
-        state.loginAttempts = 0;
-        startBlockCountdown();
-      } else {
-        setErr('Contrasena incorrecta. (' + (3 - state.loginAttempts) + ' intentos restantes)');
-      }
+
+    } catch(e) {
+      setErr('Error de conexión. Intenta de nuevo.');
+      if (loginBtn) { loginBtn.disabled = false; loginBtn.textContent = 'Entrar'; }
     }
   }
 
@@ -2360,8 +2375,10 @@
   });
 
   function logout() {
-    sessionStorage.removeItem('finh_token');
-    sessionStorage.removeItem('finh_token_day');
+    var jwt = sessionStorage.getItem('finh_sb_token');
+    sessionStorage.removeItem('finh_sb_token');
+    sessionStorage.removeItem('finh_sb_expires');
+    SB_HEADERS['Authorization'] = 'Bearer ' + SUPABASE_KEY; // volver a anon key
     clearTimeout(state.inactivityTimer);
     clearInterval(state.countdownTimer);
     document.getElementById('app').classList.add('hidden');
@@ -2369,6 +2386,12 @@
     document.getElementById('pwd-input').value = '';
     clearErr();
     document.getElementById('block-msg').classList.add('hidden');
+    if (jwt) {
+      fetch(SUPABASE_URL + '/auth/v1/logout', {
+        method: 'POST',
+        headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + jwt }
+      }).catch(function(){});
+    }
   }
 
   // =========================================================
@@ -2494,7 +2517,7 @@
     // Intento 1: webhook n8n (si está configurado)
     if (API_URL !== 'N8N_WEBHOOK_URL') {
       try {
-        var token = sessionStorage.getItem('finh_token') || '';
+        var token = sessionStorage.getItem('finh_sb_token') || '';
         var res = await fetch(API_URL, {
           method: 'GET',
           headers: { 'X-Dashboard-Token': token, 'Content-Type': 'application/json' },
@@ -2524,7 +2547,8 @@
           sbGet('seo_keywords', 'select=*&order=clicks.desc'),
           sbGet('seo_insights', 'select=*&order=created_at.desc&limit=1'),
           sbGet('web_metrics', 'select=*&order=created_at.desc&limit=1'),
-          sbGet('competitor_posts', 'select=*&order=created_at.desc')
+          sbGet('competitor_posts', 'select=*&order=created_at.desc'),
+          sbGet('tareas', 'select=*&order=fecha.asc')
         ]);
         var leadsArr  = results[0] || [];
         var postsArr  = results[1] || [];
@@ -2610,6 +2634,13 @@
               notas: '',
               desde_supabase: true
             };
+          });
+        }
+
+        var tareasArr = results[10] || [];
+        if (Array.isArray(tareasArr) && tareasArr.length) {
+          TAREAS_DATA = tareasArr.map(function(r) {
+            return { id: r.id, titulo: r.titulo||'', cat: r.cat||'otro', pri: r.pri||'media', fecha: (r.fecha||'').slice(0,10), estado: r.estado||'pendiente', notas: r.notas||'' };
           });
         }
 
@@ -5131,7 +5162,7 @@
     }).join('');
   }
 
-  // ---- Cambiar contraseña ----
+  // ---- Cambiar contraseña (vía Supabase Auth) ----
   async function cfgChangePwd() {
     var oldVal  = (document.getElementById('cfg-pwd-old')    ||{}).value||'';
     var newVal  = (document.getElementById('cfg-pwd-new')    ||{}).value||'';
@@ -5143,12 +5174,33 @@
     if (newVal !== confirm) { setS('Las contraseñas no coinciden.','#e94560'); return; }
     if (newVal.length < 8) { setS('Mínimo 8 caracteres.','#e94560'); return; }
 
-    var expected = await hashPwd(PASS_RAW);
-    var enteredHash = await hashPwd(oldVal);
-    if (enteredHash !== expected) { setS('Contraseña actual incorrecta.','#e94560'); return; }
+    setS('Verificando contraseña actual…','#6366f1');
 
-    // Can't truly change password without backend — show instructional message
-    setS('Para cambiar la contraseña, actualiza PASS_RAW en el código del dashboard.','#d97706');
+    // Verificar contraseña actual contra Supabase
+    try {
+      var verRes = await fetch(SUPABASE_URL + '/auth/v1/token?grant_type=password', {
+        method: 'POST',
+        headers: { 'apikey': SUPABASE_KEY, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: SB_USER_EMAIL, password: oldVal })
+      });
+      if (!verRes.ok) { setS('Contraseña actual incorrecta.','#e94560'); return; }
+      var verData = await verRes.json();
+      var jwt = verData.access_token;
+
+      // Cambiar contraseña en Supabase
+      var updRes = await fetch(SUPABASE_URL + '/auth/v1/user', {
+        method: 'PUT',
+        headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + jwt, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: newVal })
+      });
+      if (!updRes.ok) { setS('Error al cambiar contraseña.','#e94560'); return; }
+      setS('✓ Contraseña cambiada exitosamente.','#16a34a');
+      document.getElementById('cfg-pwd-old').value = '';
+      document.getElementById('cfg-pwd-new').value = '';
+      document.getElementById('cfg-pwd-confirm').value = '';
+    } catch(e) {
+      setS('Error de conexión.','#e94560');
+    }
   }
 
   // =========================================================
@@ -5527,7 +5579,7 @@
   function renderTareas() {
     var root = document.getElementById('tareas-root');
     if (!root) return;
-    var hoy = '2026-06-10';
+    var hoy = new Date().toISOString().slice(0,10);
     var q = tareasSearch.toLowerCase();
     var filtered = TAREAS_DATA.filter(function(t){ return !q || t.titulo.toLowerCase().indexOf(q) >= 0 || TAREA_CATS[t.cat].toLowerCase().indexOf(q) >= 0; });
 
@@ -5576,6 +5628,7 @@
       + '<div class="tareas-toolbar">'
       + '<input type="text" placeholder="Buscar tarea..." oninput="tareasSearchFn(this.value)" value="'+tareasSearch+'">'
       + '<button class="tareas-add-btn" onclick="tareasOpenNew()">+ Nueva tarea</button>'
+      + '<button onclick="tareasAnalyzeIA()" style="padding:8px 18px;background:linear-gradient(135deg,#7c3aed,#4f46e5);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap">🤖 Analizar con IA</button>'
       + '</div>'
       + kanbanHtml
       + '</div>';
@@ -5595,17 +5648,29 @@
     if (!t) return;
     var order = ['pendiente','en_proceso','revision','completado'];
     var i = order.indexOf(t.estado);
-    if (i < order.length - 1) { t.estado = order[i+1]; renderTareas(); }
+    if (i >= order.length - 1) return;
+    t.estado = order[i+1];
+    renderTareas();
+    fetch(SUPABASE_URL + '/rest/v1/tareas?id=eq.' + encodeURIComponent(id), {
+      method: 'PATCH',
+      headers: Object.assign({}, SB_HEADERS, { 'Content-Type': 'application/json', 'Prefer': 'return=minimal' }),
+      body: JSON.stringify({ estado: t.estado })
+    }).catch(function(e){ console.error('tareasAdvance PATCH', e); });
   }
 
   function tareasDelete(id) {
     if (!confirm('¿Eliminar esta tarea?')) return;
     TAREAS_DATA.splice(TAREAS_DATA.findIndex(function(x){ return x.id === id; }), 1);
     renderTareas();
+    fetch(SUPABASE_URL + '/rest/v1/tareas?id=eq.' + encodeURIComponent(id), {
+      method: 'DELETE',
+      headers: SB_HEADERS
+    }).catch(function(e){ console.error('tareasDelete', e); });
   }
 
   function tareasOpenNew() {
-    tareasShowModal({ id:'', titulo:'', cat:'contenido', pri:'media', fecha:'2026-06-10', estado:'pendiente', notas:'' }, true);
+    var hoy = new Date().toISOString().slice(0,10);
+    tareasShowModal({ id:'', titulo:'', cat:'contenido', pri:'media', fecha: hoy, estado:'pendiente', notas:'' }, true);
   }
 
   function tareasOpenEdit(id) {
@@ -5653,10 +5718,11 @@
   }
 
   function tareasSave(id, isNew) {
-    var titulo  = document.getElementById('tf-titulo').value.trim();
+    var titulo = document.getElementById('tf-titulo').value.trim();
     if (!titulo) { alert('El título es obligatorio'); return; }
+    var newId = isNew ? ('ta' + Date.now()) : id;
     var obj = {
-      id:     isNew ? 'ta' + (tareasNextId++) : id,
+      id:     newId,
       titulo: titulo,
       cat:    document.getElementById('tf-cat').value,
       pri:    document.getElementById('tf-pri').value,
@@ -5672,6 +5738,166 @@
     }
     tareasCloseModal();
     renderTareas();
+    if (isNew) {
+      fetch(SUPABASE_URL + '/rest/v1/tareas', {
+        method: 'POST',
+        headers: Object.assign({}, SB_HEADERS, { 'Content-Type': 'application/json', 'Prefer': 'return=minimal' }),
+        body: JSON.stringify(obj)
+      }).catch(function(e){ console.error('tareasSave POST', e); });
+    } else {
+      fetch(SUPABASE_URL + '/rest/v1/tareas?id=eq.' + encodeURIComponent(id), {
+        method: 'PATCH',
+        headers: Object.assign({}, SB_HEADERS, { 'Content-Type': 'application/json', 'Prefer': 'return=minimal' }),
+        body: JSON.stringify(obj)
+      }).catch(function(e){ console.error('tareasSave PATCH', e); });
+    }
+  }
+
+  window.tareasSearchFn  = tareasSearchFn;
+  window.tareasOpenNew   = tareasOpenNew;
+  window.tareasOpenEdit  = tareasOpenEdit;
+  window.tareasAdvance   = tareasAdvance;
+  window.tareasDelete    = tareasDelete;
+  window.tareasCloseModal  = tareasCloseModal;
+  window.tareasSave        = tareasSave;
+  window.tareasAnalyzeIA   = tareasAnalyzeIA;
+  window.tareasAddSuggested = tareasAddSuggested;
+  window.cfgSaveGroqKey    = cfgSaveGroqKey;
+
+  function cfgSaveGroqKey() {
+    var val = (document.getElementById('cfg-groq-key') || {}).value || '';
+    GROQ_KEY = val.trim();
+    try { localStorage.setItem('finh_groq_key', GROQ_KEY); } catch(e) {}
+    var sp = document.getElementById('cfg-groq-saved');
+    if (sp) { sp.style.opacity='1'; setTimeout(function(){ sp.style.opacity='0'; }, 2000); }
+  }
+
+  function tareasAnalyzeIA() {
+    if (!GROQ_KEY) {
+      alert('Agrega tu Groq API Key en Configuración → Conexiones antes de usar el análisis IA.');
+      return;
+    }
+    // Construir resumen de la plataforma
+    var hoy = new Date().toISOString().slice(0,10);
+    var leads = typeof LEADS_DATA !== 'undefined' ? LEADS_DATA : [];
+    var leadsTotal   = leads.length;
+    var leadsHot     = leads.filter(function(l){ return (l.score||0) >= 70; }).length;
+    var leadsSinSeg  = leads.filter(function(l){ return l.status === 'nuevo' || l.status === 'contactado'; }).length;
+    var tareasActivas = TAREAS_DATA.filter(function(t){ return t.estado !== 'completado'; }).length;
+    var tareasVenc   = TAREAS_DATA.filter(function(t){ return t.fecha < hoy && t.estado !== 'completado'; }).length;
+    var monData      = MON_REAL.length ? MON_REAL : MON_DEMO;
+    var compAlertas  = monData.filter(function(m){ return m.nivel_amenaza === 'alerta'; }).map(function(m){ return m.nombre; });
+    var campActivas  = typeof CAMP_DATA !== 'undefined' ? CAMP_DATA.filter(function(c){ return c.status === 'activa'; }) : [];
+    var campProblemas = campActivas.filter(function(c){ return c.frecuencia > 3.5 || (c.leads_cap < c.meta_leads * 0.3 && c.gastado > c.presupuesto * 0.5); });
+
+    var resumen = [
+      'Fecha: ' + hoy,
+      'Empresa: Finh Soluciones Económicas (SOFOM — arrendamiento financiero, arrendamiento puro, crédito simple para PyMEs mexicanas)',
+      '',
+      'LEADS:',
+      '- Total leads en pipeline: ' + leadsTotal,
+      '- Leads calificados (score ≥70): ' + leadsHot,
+      '- Leads sin seguimiento reciente (nuevo/contactado): ' + leadsSinSeg,
+      '',
+      'TAREAS ACTUALES:',
+      '- Tareas activas: ' + tareasActivas,
+      '- Tareas vencidas sin completar: ' + tareasVenc,
+      '- Tareas existentes: ' + TAREAS_DATA.filter(function(t){ return t.estado!=='completado'; }).map(function(t){ return '"'+t.titulo+'"'; }).join(', '),
+      '',
+      'MONITOR DE COMPETIDORES:',
+      '- Competidores en nivel ALERTA: ' + (compAlertas.length ? compAlertas.join(', ') : 'ninguno'),
+      '- Total competidores monitoreados: ' + monData.length,
+      '',
+      'CAMPAÑAS DIGITALES:',
+      '- Campañas activas: ' + campActivas.map(function(c){ return c.nombre; }).join(', '),
+      '- Campañas con problemas de rendimiento: ' + (campProblemas.length ? campProblemas.map(function(c){ return c.nombre; }).join(', ') : 'ninguna'),
+    ].join('\n');
+
+    var prompt = 'Eres un consultor estratégico de marketing B2B para Finh Soluciones Económicas.\n\nAnaliza el siguiente resumen de la plataforma y genera exactamente 6 tareas concretas y accionables para el equipo de marketing. Prioriza según impacto en generación de leads B2B para PyMEs mexicanas.\n\nRESUMEN DE LA PLATAFORMA:\n' + resumen + '\n\nResponde SOLO en JSON válido, sin texto adicional:\n{\n  "tareas": [\n    {\n      "titulo": "título corto y accionable (máx 80 chars)",\n      "cat": "leads|contenido|campanas|monitor|config|reportes|otro",\n      "pri": "alta|media|baja",\n      "fecha": "' + hoy + '",\n      "razon": "Por qué esta tarea es importante ahora (1 línea)"\n    }\n  ]\n}';
+
+    // Mostrar modal de carga
+    var overlay = document.createElement('div');
+    overlay.id = 'ia-modal-overlay';
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px';
+    overlay.innerHTML = '<div style="background:var(--card);border-radius:14px;padding:28px;max-width:620px;width:100%;max-height:80vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.3)">'
+      + '<div style="font-size:18px;font-weight:800;color:var(--text);margin-bottom:6px">🤖 Análisis IA de la plataforma</div>'
+      + '<div style="font-size:13px;color:var(--text2);margin-bottom:20px">Analizando leads, competidores y campañas con Groq llama-3.3-70b…</div>'
+      + '<div id="ia-modal-body" style="display:flex;align-items:center;justify-content:center;padding:30px 0">'
+      + '<div style="font-size:28px;animation:spin 1s linear infinite">⏳</div>'
+      + '</div>'
+      + '<div id="ia-modal-footer" style="display:none;margin-top:18px;display:flex;gap:10px;justify-content:flex-end">'
+      + '<button onclick="document.getElementById(\'ia-modal-overlay\').remove()" style="padding:8px 18px;background:none;border:1px solid var(--border);border-radius:8px;font-size:13px;cursor:pointer;color:var(--text2)">Cerrar</button>'
+      + '<button id="ia-add-btn" onclick="tareasAddSuggested()" style="padding:8px 20px;background:var(--accent);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">✅ Agregar seleccionadas</button>'
+      + '</div>'
+      + '</div>';
+    document.body.appendChild(overlay);
+
+    fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + GROQ_KEY },
+      body: JSON.stringify({ model: 'llama-3.3-70b-versatile', messages: [{ role: 'user', content: prompt }], max_tokens: 900, temperature: 0.3 })
+    })
+    .then(function(r){ return r.json(); })
+    .then(function(data) {
+      var body = document.getElementById('ia-modal-body');
+      var footer = document.getElementById('ia-modal-footer');
+      if (!body) return;
+      try {
+        var text = data.choices[0].message.content.trim();
+        var jsonMatch = text.match(/\{[\s\S]*\}/);
+        var parsed = JSON.parse(jsonMatch ? jsonMatch[0] : text);
+        var sugeridas = parsed.tareas || [];
+        window._tareasIA = sugeridas;
+        var html = '<div style="display:flex;flex-direction:column;gap:10px;width:100%">';
+        sugeridas.forEach(function(t, i) {
+          var priColor = t.pri==='alta' ? '#ef4444' : t.pri==='media' ? '#f59e0b' : '#64748b';
+          var catLabel = { leads:'Leads', contenido:'Contenido', campanas:'Campañas', monitor:'Monitor', config:'Config', reportes:'Reportes', otro:'Otro' }[t.cat] || t.cat;
+          html += '<label style="display:flex;align-items:flex-start;gap:10px;padding:12px 14px;background:var(--bg);border-radius:8px;border:1px solid var(--border);cursor:pointer">'
+            + '<input type="checkbox" id="ia-chk-'+i+'" checked style="margin-top:3px;accent-color:var(--accent);width:16px;height:16px;flex-shrink:0">'
+            + '<div style="flex:1">'
+            + '<div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:4px">'+t.titulo+'</div>'
+            + '<div style="font-size:11px;color:var(--text2);margin-bottom:6px">'+t.razon+'</div>'
+            + '<div style="display:flex;gap:6px">'
+            + '<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;background:'+priColor+'22;color:'+priColor+'">'+t.pri.toUpperCase()+'</span>'
+            + '<span style="font-size:10px;font-weight:600;padding:2px 8px;border-radius:10px;background:var(--border);color:var(--text2)">'+catLabel+'</span>'
+            + '</div></div></label>';
+        });
+        html += '</div>';
+        body.innerHTML = html;
+        if (footer) footer.style.display = 'flex';
+      } catch(e) {
+        body.innerHTML = '<div style="color:#ef4444;font-size:13px;text-align:center;padding:20px">⚠️ Error al interpretar respuesta de IA.<br><small>' + (data.error ? data.error.message : String(e)) + '</small></div>';
+        if (footer) footer.style.display = 'flex';
+      }
+    })
+    .catch(function(err) {
+      var body = document.getElementById('ia-modal-body');
+      if (body) body.innerHTML = '<div style="color:#ef4444;font-size:13px;text-align:center;padding:20px">⚠️ Error de conexión con Groq.<br><small>'+err.message+'</small></div>';
+      var footer = document.getElementById('ia-modal-footer');
+      if (footer) footer.style.display = 'flex';
+    });
+  }
+
+  function tareasAddSuggested() {
+    var sugeridas = window._tareasIA || [];
+    var hoy = new Date().toISOString().slice(0,10);
+    var agregadas = 0;
+    sugeridas.forEach(function(t, i) {
+      var chk = document.getElementById('ia-chk-' + i);
+      if (!chk || !chk.checked) return;
+      var obj = { id: 'ta' + Date.now() + i, titulo: t.titulo, cat: t.cat || 'otro', pri: t.pri || 'media', fecha: t.fecha || hoy, estado: 'pendiente', notas: t.razon || '' };
+      TAREAS_DATA.push(obj);
+      fetch(SUPABASE_URL + '/rest/v1/tareas', {
+        method: 'POST',
+        headers: Object.assign({}, SB_HEADERS, { 'Content-Type': 'application/json', 'Prefer': 'return=minimal' }),
+        body: JSON.stringify(obj)
+      }).catch(function(e){ console.error('tareasAddSuggested POST', e); });
+      agregadas++;
+    });
+    var overlay = document.getElementById('ia-modal-overlay');
+    if (overlay) overlay.remove();
+    if (agregadas > 0) renderTareas();
+    if (agregadas > 0) activosShowToast(agregadas + ' tarea' + (agregadas > 1 ? 's agregadas' : ' agregada') + ' al kanban ✅');
   }
 
   // =========================================================
